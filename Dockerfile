@@ -32,6 +32,8 @@ COPY --from=builder /app/requirements.txt .
 
 RUN pip install --no-cache /wheels/*
 
+RUN playwright install --with-deps chromium
+
 COPY . .
 
 EXPOSE 8000

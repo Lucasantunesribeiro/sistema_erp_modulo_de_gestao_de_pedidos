@@ -9,6 +9,7 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./setup.cfg:/app/setup.cfg
+      - ./pytest.ini:/app/pytest.ini
     env_file:
       - .env
     depends_on:
