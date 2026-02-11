@@ -1,4 +1,4 @@
-"""Unit tests for the Order model.
+"""Unit tests for Order and OrderItem models.
 
 Covers:
 - Valid creation with auto-generated order_number.
@@ -10,6 +10,11 @@ Covers:
 - __str__ representation.
 - Status choices from OrderStatus.
 - VALID_TRANSITIONS map correctness.
+- OrderItem automatic subtotal calculation.
+- OrderItem price snapshot from product.
+- OrderItem quantity validation (>= 1).
+- OrderItem reverse relation via order.items.
+- OrderItem product FK with PROTECT.
 """
 
 from __future__ import annotations
@@ -21,12 +26,14 @@ from unittest.mock import patch
 import pytest
 from validate_docbr import CPF as CPFGenerator
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 
 from modules.customers.models import Customer, DocumentType
 from modules.orders.constants import VALID_TRANSITIONS, OrderStatus
-from modules.orders.models import Order
+from modules.orders.models import Order, OrderItem
+from modules.products.models import Product
 
 pytestmark = pytest.mark.unit
 
@@ -59,6 +66,32 @@ def _make_order(customer=None, **overrides) -> Order:
     }
     defaults.update(overrides)
     return Order.objects.create(**defaults)
+
+
+def _make_product(**overrides) -> Product:
+    """Create and persist a Product for FK references."""
+    defaults = {
+        "sku": f"SKU-{uuid.uuid4().hex[:8].upper()}",
+        "name": "Test Product",
+        "price": Decimal("49.90"),
+        "stock_quantity": 100,
+    }
+    defaults.update(overrides)
+    return Product.objects.create(**defaults)
+
+
+def _make_order_item(order=None, product=None, **overrides) -> OrderItem:
+    """Create and persist an OrderItem with sensible defaults."""
+    if order is None:
+        order = _make_order()
+    if product is None:
+        product = _make_product()
+    defaults = {
+        "order": order,
+        "product": product,
+    }
+    defaults.update(overrides)
+    return OrderItem.objects.create(**defaults)
 
 
 # ---------------------------------------------------------------------------
@@ -317,3 +350,212 @@ class TestOrderDisplay:
         result = str(order)
         assert order.order_number in result
         assert "PENDING" in result
+
+
+# ===========================================================================
+# OrderItem Tests
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# OrderItem Creation & Subtotal Calculation
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemCreation:
+    """OrderItem creation and automatic subtotal calculation."""
+
+    def test_create_item_with_defaults(self):
+        product = _make_product(price=Decimal("25.00"))
+        item = _make_order_item(product=product)
+        item.refresh_from_db()
+        assert item.quantity == 1
+        assert item.unit_price == Decimal("25.00")
+        assert item.subtotal == Decimal("25.00")
+
+    def test_subtotal_calculated_on_save(self):
+        product = _make_product(price=Decimal("10.50"))
+        item = _make_order_item(product=product, quantity=3)
+        item.refresh_from_db()
+        assert item.subtotal == Decimal("31.50")
+
+    def test_subtotal_recalculated_on_update(self):
+        product = _make_product(price=Decimal("20.00"))
+        item = _make_order_item(product=product, quantity=2)
+        assert item.subtotal == Decimal("40.00")
+        item.quantity = 5
+        item.save()
+        item.refresh_from_db()
+        assert item.subtotal == Decimal("100.00")
+
+    def test_subtotal_with_decimal_price(self):
+        product = _make_product(price=Decimal("9.99"))
+        item = _make_order_item(product=product, quantity=4)
+        item.refresh_from_db()
+        assert item.subtotal == Decimal("39.96")
+
+    def test_id_is_uuid7(self):
+        item = _make_order_item()
+        assert isinstance(item.id, uuid.UUID)
+        assert item.id.version == 7
+
+    def test_timestamps_set_on_create(self):
+        item = _make_order_item()
+        assert item.created_at is not None
+        assert item.updated_at is not None
+
+
+# ---------------------------------------------------------------------------
+# Price Snapshot
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemPriceSnapshot:
+    """unit_price is a snapshot of the product price at creation time."""
+
+    def test_unit_price_auto_filled_from_product(self):
+        product = _make_product(price=Decimal("75.00"))
+        item = _make_order_item(product=product)
+        assert item.unit_price == Decimal("75.00")
+
+    def test_explicit_unit_price_preserved(self):
+        product = _make_product(price=Decimal("75.00"))
+        item = _make_order_item(
+            product=product, unit_price=Decimal("60.00"), quantity=2
+        )
+        item.refresh_from_db()
+        assert item.unit_price == Decimal("60.00")
+        assert item.subtotal == Decimal("120.00")
+
+    def test_price_snapshot_not_affected_by_product_update(self):
+        product = _make_product(price=Decimal("100.00"))
+        item = _make_order_item(product=product, quantity=1)
+        assert item.unit_price == Decimal("100.00")
+
+        # Update product price
+        product.price = Decimal("150.00")
+        product.save()
+
+        # Reload item — unit_price must NOT change
+        item.refresh_from_db()
+        assert item.unit_price == Decimal("100.00")
+        assert item.subtotal == Decimal("100.00")
+
+
+# ---------------------------------------------------------------------------
+# Quantity Validation
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemQuantity:
+    """Quantity must be at least 1."""
+
+    def test_default_quantity_is_one(self):
+        item = _make_order_item()
+        assert item.quantity == 1
+
+    def test_quantity_greater_than_one(self):
+        item = _make_order_item(quantity=10)
+        assert item.quantity == 10
+
+    def test_zero_quantity_fails_clean(self):
+        item = OrderItem(
+            order=_make_order(),
+            product=_make_product(),
+            quantity=0,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            item.clean()
+        assert "quantity" in exc_info.value.message_dict
+
+
+# ---------------------------------------------------------------------------
+# Order Relation (reverse)
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemRelation:
+    """OrderItem relates to Order via items reverse relation."""
+
+    def test_order_items_reverse_relation(self):
+        order = _make_order()
+        product1 = _make_product()
+        product2 = _make_product()
+        _make_order_item(order=order, product=product1)
+        _make_order_item(order=order, product=product2)
+        assert order.items.count() == 2
+
+    def test_items_belong_to_correct_order(self):
+        order1 = _make_order()
+        order2 = _make_order()
+        product = _make_product()
+        item1 = _make_order_item(order=order1, product=product)
+        _make_order_item(order=order2, product=product)
+        assert list(order1.items.values_list("pk", flat=True)) == [item1.pk]
+
+
+# ---------------------------------------------------------------------------
+# Product FK PROTECT
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemProductFK:
+    """Product FK uses PROTECT — cannot delete product with order items."""
+
+    def test_product_protect_prevents_delete(self):
+        product = _make_product()
+        _make_order_item(product=product)
+        with pytest.raises(ProtectedError):
+            product.hard_delete()
+
+    def test_order_cascade_deletes_items(self):
+        """Hard-deleting an Order cascades to its items."""
+        order = _make_order()
+        item = _make_order_item(order=order)
+        item_pk = item.pk
+        order.hard_delete()
+        assert not OrderItem.objects.filter(pk=item_pk).exists()
+
+
+# ---------------------------------------------------------------------------
+# OrderItem Soft Delete
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemSoftDelete:
+    """Soft delete lifecycle inherited from SoftDeleteModel."""
+
+    def test_delete_sets_deleted_at(self):
+        item = _make_order_item()
+        item.delete()
+        item.refresh_from_db()
+        assert item.is_deleted is True
+        assert item.deleted_at is not None
+
+    def test_soft_deleted_excluded_from_alive(self):
+        item = _make_order_item()
+        item.delete()
+        assert not OrderItem.objects.alive().filter(pk=item.pk).exists()
+
+    def test_restore_after_soft_delete(self):
+        item = _make_order_item()
+        item.delete()
+        item.restore()
+        item.refresh_from_db()
+        assert item.is_deleted is False
+
+
+# ---------------------------------------------------------------------------
+# OrderItem Display
+# ---------------------------------------------------------------------------
+
+
+class TestOrderItemDisplay:
+    """__str__ includes product, quantity, and subtotal."""
+
+    def test_str_representation(self):
+        product = _make_product(price=Decimal("15.00"))
+        item = _make_order_item(product=product, quantity=3)
+        result = str(item)
+        assert "x3" in result
+        assert "45.00" in result

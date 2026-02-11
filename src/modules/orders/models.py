@@ -1,10 +1,12 @@
-"""Order model with status state machine and idempotency support.
+"""Order and OrderItem models with status state machine and idempotency support.
 
 Business rules implemented:
 - RN-PED-001: Invalid status transitions rejected (enforced at service layer).
 - Idempotency via ``idempotency_key`` unique constraint.
 - Order number auto-generated as human-readable identifier.
 - Customer FK uses PROTECT to preserve financial history.
+- OrderItem snapshots product price at creation time (``unit_price``).
+- OrderItem subtotal is always ``quantity * unit_price`` (calculated on save).
 - Soft delete via ``deleted_at`` (inherited from SoftDeleteModel).
 """
 
@@ -15,6 +17,8 @@ from decimal import Decimal
 
 import structlog
 
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -103,3 +107,75 @@ class Order(SoftDeleteModel):
 
     def __str__(self) -> str:
         return f"{self.order_number} ({self.status})"
+
+
+class OrderItem(SoftDeleteModel):
+    """Line item linking an Order to a Product.
+
+    ``unit_price`` is a **snapshot** of the product price at the time of
+    purchase — it never changes even if the product price is updated later.
+    ``subtotal`` is always ``quantity * unit_price``, recalculated on every save.
+
+    Inherits ``SoftDeleteModel`` for consistency with Order.  If the parent
+    Order is hard-deleted, CASCADE removes items at the database level.
+    """
+
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    product = models.ForeignKey(
+        "products.Product",
+        on_delete=models.PROTECT,
+        related_name="order_items",
+    )
+    quantity = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+    )
+    unit_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+    subtotal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        editable=False,
+    )
+
+    class Meta:
+        db_table = "order_items"
+        ordering = ["created_at"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(quantity__gte=1),
+                name="order_items_quantity_positive",
+            ),
+        ]
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+
+    def clean(self) -> None:
+        super().clean()
+        if self.quantity is not None and self.quantity < 1:
+            raise ValidationError({"quantity": "Quantity must be at least 1."})
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save(self, *args, **kwargs) -> None:
+        if not self.unit_price:
+            self.unit_price = self.product.price
+        self.subtotal = self.quantity * self.unit_price
+        super().save(*args, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Display
+    # ------------------------------------------------------------------
+
+    def __str__(self) -> str:
+        return f"{self.product} x{self.quantity} (${self.subtotal})"
