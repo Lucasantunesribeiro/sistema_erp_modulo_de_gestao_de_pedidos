@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     # Local Apps (Modules)
     "modules.core",
     "modules.customers",
+    "modules.products",
 ]
 
 MIDDLEWARE = [
