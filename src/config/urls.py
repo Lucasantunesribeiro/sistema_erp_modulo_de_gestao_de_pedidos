@@ -10,6 +10,8 @@ from django.urls import include, path
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("modules.core.urls")),
+    # Domain modules — versioned API
+    path("api/v1/", include("modules.customers.urls")),
     # OpenAPI schema & docs (public)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

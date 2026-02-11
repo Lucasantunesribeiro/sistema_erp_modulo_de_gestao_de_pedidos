@@ -11,7 +11,7 @@ Business rules enforced here:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import structlog
 
@@ -104,6 +104,12 @@ class CustomerService:
     # ------------------------------------------------------------------
     # Queries
     # ------------------------------------------------------------------
+
+    def list_customers(
+        self, filters: Optional[Dict[str, Any]] = None
+    ) -> List[Customer]:
+        """Return a list of customers, optionally filtered."""
+        return self._repo.list(filters)
 
     def get_customer(self, id: str) -> Customer:
         """Retrieve a single customer by ID.
