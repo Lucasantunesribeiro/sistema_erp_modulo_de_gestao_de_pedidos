@@ -1,6 +1,9 @@
 import time
 
 import structlog
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from django.core.cache import cache
 from django.db import connections
@@ -61,3 +64,23 @@ def health_check(request):
         },
         status=status_code,
     )
+
+
+class ProtectedView(APIView):
+    """Minimal endpoint that requires a valid JWT.
+
+    Used to verify that Fail-Closed auth works:
+    * No token  -> 401
+    * Bad token -> 401
+    * Valid JWT -> 200
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(
+            {
+                "message": "authenticated",
+                "user": str(request.user),
+            }
+        )

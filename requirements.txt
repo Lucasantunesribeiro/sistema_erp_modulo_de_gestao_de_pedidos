@@ -50,6 +50,12 @@ python-dotenv>=1.0.0
 dj-database-url>=2.1.0
 
 # -----------------------------------------------------------------------------
+# Autenticação JWT (Auth0)
+# -----------------------------------------------------------------------------
+PyJWT[crypto]>=2.9.0  # JWT decode/verify RS256 (substitui python-jose - CVE-2025-61152)
+requests>=2.32.0  # JWKS fetch (já transitive, mas declarado explícito)
+
+# -----------------------------------------------------------------------------
 # Testing - PYTEST (OBRIGATÓRIO PELO TESTE)
 # -----------------------------------------------------------------------------
 pytest>=8.1.1
@@ -57,6 +63,7 @@ pytest-django>=4.8.0
 pytest-cov>=5.0.0
 pytest-xdist>=3.5.0  # Testes paralelos (concorrência)
 pytest-asyncio>=0.23.0
+pytest-playwright>=0.5.0
 model-bakery>=1.18.0
 factory-boy>=3.3.0
 freezegun>=1.4.0  # Mock de tempo para testes

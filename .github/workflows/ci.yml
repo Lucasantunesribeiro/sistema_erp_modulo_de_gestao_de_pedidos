@@ -12,6 +12,9 @@ env:
   ALLOWED_HOSTS: "localhost,127.0.0.1"
   DATABASE_URL: "mysql://root:rootpass@127.0.0.1:3306/erp_orders"
   REDIS_URL: "redis://127.0.0.1:6379/0"
+  AUTH0_DOMAIN: "ci-test.us.auth0.com"
+  AUTH0_AUDIENCE: "https://api.erp.com"
+  AUTH0_ALGORITHM: "RS256"
 
 jobs:
   test:
