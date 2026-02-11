@@ -1,5 +1,7 @@
+import re
 from pathlib import Path
 
+import structlog
 from decouple import Csv, config
 from dj_database_url import parse as db_url
 
@@ -32,6 +34,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "modules.core.middleware.CorrelationIdMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -128,3 +131,81 @@ CORS_ALLOWED_ORIGINS = config(
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS", default="http://localhost:3000", cast=Csv()
 )
+
+# ---------------------------------------------------------------------------
+# Structured Logging (structlog + Django LOGGING)
+# ---------------------------------------------------------------------------
+SENSITIVE_PATTERN = re.compile(
+    r"(\d{3}\.?\d{3}\.?\d{3}-?\d{2})"  # CPF
+    r"|(\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2})"  # CNPJ
+    r"|(password|passwd|secret|token|authorization)"
+    r"""([=:]\s*["']?)([^\s,}"']+)""",
+    re.IGNORECASE,
+)
+
+
+def mask_sensitive_data(_, __, event_dict):
+    """Processor that masks CPF, CNPJ, passwords and tokens in log values."""
+    for key, value in list(event_dict.items()):
+        if isinstance(value, str):
+            event_dict[key] = SENSITIVE_PATTERN.sub("***MASKED***", value)
+    return event_dict
+
+
+# Shared processors used by both structlog and stdlib logging
+_shared_processors = [
+    structlog.contextvars.merge_contextvars,
+    structlog.stdlib.add_log_level,
+    structlog.stdlib.add_logger_name,
+    structlog.processors.TimeStamper(fmt="iso"),
+    mask_sensitive_data,
+    structlog.processors.StackInfoRenderer(),
+    structlog.processors.UnicodeDecoder(),
+]
+
+structlog.configure(
+    processors=[
+        *_shared_processors,
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processors": [
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                structlog.processors.JSONRenderer(),
+            ],
+            "foreign_pre_chain": _shared_processors,
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.server": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}

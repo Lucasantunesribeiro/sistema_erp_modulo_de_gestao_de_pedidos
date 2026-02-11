@@ -1,9 +1,13 @@
 import time
 
+import structlog
+
 from django.core.cache import cache
 from django.db import connections
 from django.http import JsonResponse
 from django.utils import timezone
+
+logger = structlog.get_logger()
 
 
 def health_check(request):
@@ -25,6 +29,7 @@ def health_check(request):
     except Exception:
         services["database"] = {"status": "down"}
         overall_healthy = False
+        logger.error("health_check_db_failure")
 
     # Check cache (Redis)
     try:
@@ -40,8 +45,13 @@ def health_check(request):
     except Exception:
         services["cache"] = {"status": "down"}
         overall_healthy = False
+        logger.error("health_check_cache_failure")
 
     status_code = 200 if overall_healthy else 503
+
+    logger.info(
+        "health_check_completed", status="healthy" if overall_healthy else "unhealthy"
+    )
 
     return JsonResponse(
         {
