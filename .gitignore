@@ -64,7 +64,8 @@ celerybeat.pid
 dump.rdb
 
 # Documentation
-/docs/
+/docs/*
+!/docs/erDiagram.mmd
 CLAUDE.md
 
 .agent
