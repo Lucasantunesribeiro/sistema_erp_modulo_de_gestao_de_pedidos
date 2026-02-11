@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django_filters',
 
     # Local Apps (Modules)
+    'modules.core',
 ]
 
 MIDDLEWARE = [
