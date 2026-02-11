@@ -1,0 +1,126 @@
+# =============================================================================
+# Sistema ERP - Módulo de Gestão de Pedidos
+# Teste Técnico Desenvolvedor Backend Pleno
+# Stack: Python + Django REST Framework + MySQL + Redis + Docker
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Core Framework
+# -----------------------------------------------------------------------------
+Django>=5.0,<5.1
+djangorestframework>=3.15.1
+
+# -----------------------------------------------------------------------------
+# CORS e Segurança
+# -----------------------------------------------------------------------------
+django-cors-headers>=4.3.1
+django-csp>=3.7
+
+# -----------------------------------------------------------------------------
+# Filtros e Documentação API (OpenAPI/Swagger)
+# -----------------------------------------------------------------------------
+django-filter>=24.2,<25.2
+drf-yasg>=1.21.7
+drf-spectacular>=0.27.0  # OpenAPI 3.0 - alternativa moderna
+
+# -----------------------------------------------------------------------------
+# Banco de Dados - MYSQL (OBRIGATÓRIO PELO TESTE)
+# -----------------------------------------------------------------------------
+mysqlclient>=2.2.4
+PyMySQL>=1.1.0  # Fallback para ambientes sem mysqlclient nativo
+
+# -----------------------------------------------------------------------------
+# Cache e Idempotência - REDIS (OBRIGATÓRIO PELO TESTE)
+# -----------------------------------------------------------------------------
+redis>=5.0.0
+django-redis>=5.4.0
+hiredis>=2.3.0  # Parser C para performance
+
+# -----------------------------------------------------------------------------
+# Async Tasks e Eventos
+# -----------------------------------------------------------------------------
+Celery>=5.3.6
+celery-redbeat>=2.2.0  # Scheduler distribuído com Redis
+
+# -----------------------------------------------------------------------------
+# Variáveis de Ambiente
+# -----------------------------------------------------------------------------
+python-decouple>=3.8
+python-dotenv>=1.0.0
+dj-database-url>=2.1.0
+
+# -----------------------------------------------------------------------------
+# Testing - PYTEST (OBRIGATÓRIO PELO TESTE)
+# -----------------------------------------------------------------------------
+pytest>=8.1.1
+pytest-django>=4.8.0
+pytest-cov>=5.0.0
+pytest-xdist>=3.5.0  # Testes paralelos (concorrência)
+pytest-asyncio>=0.23.0
+model-bakery>=1.18.0
+factory-boy>=3.3.0
+freezegun>=1.4.0  # Mock de tempo para testes
+responses>=0.25.0  # Mock de requisições HTTP
+
+# -----------------------------------------------------------------------------
+# Observabilidade e Logging Estruturado
+# -----------------------------------------------------------------------------
+structlog>=24.1.0
+python-json-logger>=2.0.7
+
+# OpenTelemetry para tracing distribuído
+opentelemetry-api>=1.24.0
+opentelemetry-sdk>=1.24.0
+opentelemetry-instrumentation-django>=0.45b0
+opentelemetry-instrumentation-redis>=0.45b0
+opentelemetry-instrumentation-celery>=0.45b0
+opentelemetry-exporter-otlp>=1.24.0
+
+# -----------------------------------------------------------------------------
+# Validação e Utilidades
+# -----------------------------------------------------------------------------
+# Validação de CPF/CNPJ
+validate-docbr>=0.0.2
+pydantic>=2.7.0
+email-validator>=2.1.0
+
+# Utilidades
+python-dateutil>=2.9.0
+pytz>=2024.1
+uuid6>=2024.1  # UUID com timestamp para ordenação
+
+# -----------------------------------------------------------------------------
+# Rate Limiting
+# -----------------------------------------------------------------------------
+django-ratelimit>=4.1.0
+django-redis-ratelimit>=0.1.0
+
+# -----------------------------------------------------------------------------
+# Server e Deploy
+# -----------------------------------------------------------------------------
+gunicorn>=21.2.0
+whitenoise>=6.6.0  # Static files em produção
+
+# -----------------------------------------------------------------------------
+# Health Checks
+# -----------------------------------------------------------------------------
+django-health-check>=3.18.0
+
+# -----------------------------------------------------------------------------
+# Code Quality (Dev dependencies)
+# -----------------------------------------------------------------------------
+black>=24.0.0
+isort>=5.13.0
+flake8>=6.0.0,<7.0.0
+flake8-django>=1.4
+mypy>=1.9.0
+django-stubs>=4.2.0
+pre-commit>=3.7.0
+
+# -----------------------------------------------------------------------------
+# NOTA IMPORTANTE:
+# -----------------------------------------------------------------------------
+# - NÃO usar psycopg2 (PostgreSQL) - MySQL é OBRIGATÓRIO
+# - Todas as versões são fixadas para garantir reproducibilidade
+# - Use: pip install -r requirements.txt
+# - Para desenvolvimento: pip install -r requirements-dev.txt (separar depois)
