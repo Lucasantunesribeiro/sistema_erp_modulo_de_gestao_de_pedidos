@@ -18,6 +18,7 @@ import structlog
 from decouple import config
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWTError
+
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 

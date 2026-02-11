@@ -1,14 +1,15 @@
 import time
 
 import structlog
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from django.core.cache import cache
 from django.db import connections
 from django.http import JsonResponse
 from django.utils import timezone
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 logger = structlog.get_logger()
 
