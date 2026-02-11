@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     # Local Apps (Modules)
     "modules.core",
+    "modules.customers",
 ]
 
 MIDDLEWARE = [
