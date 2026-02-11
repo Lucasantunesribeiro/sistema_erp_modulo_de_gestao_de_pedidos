@@ -1,7 +1,9 @@
-"""Order and OrderItem models with status state machine and idempotency support.
+"""Order, OrderItem, and OrderStatusHistory models.
 
 Business rules implemented:
 - RN-PED-001: Invalid status transitions rejected (enforced at service layer).
+- RN-PED-002: Each status change generates a history record.
+- RN-PED-003: History contains old/new status, timestamp, user, and notes.
 - Idempotency via ``idempotency_key`` unique constraint.
 - Order number auto-generated as human-readable identifier.
 - Customer FK uses PROTECT to preserve financial history.
@@ -17,12 +19,13 @@ from decimal import Decimal
 
 import structlog
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from modules.core.models import SoftDeleteModel
+from modules.core.models import BaseModel, SoftDeleteModel
 from modules.orders.constants import ORDER_NUMBER_MAX_RETRIES, OrderStatus
 
 logger = structlog.get_logger(__name__)
@@ -179,3 +182,56 @@ class OrderItem(SoftDeleteModel):
 
     def __str__(self) -> str:
         return f"{self.product} x{self.quantity} (${self.subtotal})"
+
+
+class OrderStatusHistory(BaseModel):
+    """Append-only audit trail for order status transitions.
+
+    Each record captures a single status change with the responsible user
+    and optional notes (e.g. cancellation reason).
+
+    This model intentionally inherits ``BaseModel`` (not ``SoftDeleteModel``)
+    because audit records are **immutable** — they must never be edited or
+    soft-deleted.  ``user`` is nullable: ``None`` means the change was
+    performed by the system (e.g. automatic cancellation).
+    """
+
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.CASCADE,
+        related_name="status_history",
+    )
+    old_status = models.CharField(  # noqa: DJ01
+        max_length=20,
+        choices=OrderStatus.choices,
+        null=True,
+        blank=True,
+    )
+    new_status = models.CharField(
+        max_length=20,
+        choices=OrderStatus.choices,
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "order_status_history"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["order", "-created_at"],
+                name="osh_order_created_idx",
+            ),
+        ]
+
+    # ------------------------------------------------------------------
+    # Display
+    # ------------------------------------------------------------------
+
+    def __str__(self) -> str:
+        return f"{self.order} : {self.old_status} -> {self.new_status}"

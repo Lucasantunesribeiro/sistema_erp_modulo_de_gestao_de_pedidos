@@ -1,4 +1,4 @@
-"""Unit tests for Order and OrderItem models.
+"""Unit tests for Order, OrderItem, and OrderStatusHistory models.
 
 Covers:
 - Valid creation with auto-generated order_number.
@@ -15,10 +15,14 @@ Covers:
 - OrderItem quantity validation (>= 1).
 - OrderItem reverse relation via order.items.
 - OrderItem product FK with PROTECT.
+- OrderStatusHistory creation and ordering.
+- OrderStatusHistory null user (system-initiated).
+- OrderStatusHistory reverse relation via order.status_history.
 """
 
 from __future__ import annotations
 
+import time
 import uuid
 from decimal import Decimal
 from unittest.mock import patch
@@ -32,7 +36,7 @@ from django.db.models import ProtectedError
 
 from modules.customers.models import Customer, DocumentType
 from modules.orders.constants import VALID_TRANSITIONS, OrderStatus
-from modules.orders.models import Order, OrderItem
+from modules.orders.models import Order, OrderItem, OrderStatusHistory
 from modules.products.models import Product
 
 pytestmark = pytest.mark.unit
@@ -559,3 +563,176 @@ class TestOrderItemDisplay:
         result = str(item)
         assert "x3" in result
         assert "45.00" in result
+
+
+# ===========================================================================
+# OrderStatusHistory Tests
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# OrderStatusHistory Creation
+# ---------------------------------------------------------------------------
+
+
+class TestOrderStatusHistoryCreation:
+    """History record creation linked to an order."""
+
+    def test_create_history_record(self):
+        order = _make_order()
+        history = OrderStatusHistory.objects.create(
+            order=order,
+            old_status=None,
+            new_status=OrderStatus.PENDING,
+            notes="Order created.",
+        )
+        history.refresh_from_db()
+        assert history.order_id == order.pk
+        assert history.old_status is None
+        assert history.new_status == OrderStatus.PENDING
+        assert history.notes == "Order created."
+        assert history.user is None
+        assert history.created_at is not None
+
+    def test_create_transition_record(self):
+        order = _make_order()
+        history = OrderStatusHistory.objects.create(
+            order=order,
+            old_status=OrderStatus.PENDING,
+            new_status=OrderStatus.CONFIRMED,
+        )
+        history.refresh_from_db()
+        assert history.old_status == OrderStatus.PENDING
+        assert history.new_status == OrderStatus.CONFIRMED
+
+    def test_id_is_uuid7(self):
+        order = _make_order()
+        history = OrderStatusHistory.objects.create(
+            order=order,
+            new_status=OrderStatus.PENDING,
+        )
+        assert isinstance(history.id, uuid.UUID)
+        assert history.id.version == 7
+
+    def test_reverse_relation(self):
+        order = _make_order()
+        OrderStatusHistory.objects.create(
+            order=order,
+            old_status=None,
+            new_status=OrderStatus.PENDING,
+        )
+        OrderStatusHistory.objects.create(
+            order=order,
+            old_status=OrderStatus.PENDING,
+            new_status=OrderStatus.CONFIRMED,
+        )
+        assert order.status_history.count() == 2
+
+
+# ---------------------------------------------------------------------------
+# OrderStatusHistory Ordering
+# ---------------------------------------------------------------------------
+
+
+class TestOrderStatusHistoryOrdering:
+    """Most recent history record comes first (ordering = ['-created_at'])."""
+
+    def test_most_recent_first(self):
+        order = _make_order()
+        h1 = OrderStatusHistory.objects.create(
+            order=order,
+            old_status=None,
+            new_status=OrderStatus.PENDING,
+        )
+        # Small delay to ensure different timestamps
+        time.sleep(0.01)
+        h2 = OrderStatusHistory.objects.create(
+            order=order,
+            old_status=OrderStatus.PENDING,
+            new_status=OrderStatus.CONFIRMED,
+        )
+        history_ids = list(order.status_history.values_list("pk", flat=True))
+        assert history_ids[0] == h2.pk
+        assert history_ids[1] == h1.pk
+
+
+# ---------------------------------------------------------------------------
+# OrderStatusHistory Null User
+# ---------------------------------------------------------------------------
+
+
+class TestOrderStatusHistoryNullUser:
+    """System-initiated changes have user=None."""
+
+    def test_null_user_allowed(self):
+        order = _make_order()
+        history = OrderStatusHistory.objects.create(
+            order=order,
+            old_status=OrderStatus.PENDING,
+            new_status=OrderStatus.CANCELLED,
+            user=None,
+            notes="Cancelled by system due to stock shortage.",
+        )
+        history.refresh_from_db()
+        assert history.user is None
+        assert history.notes == "Cancelled by system due to stock shortage."
+
+    def test_default_notes_is_empty(self):
+        order = _make_order()
+        history = OrderStatusHistory.objects.create(
+            order=order,
+            new_status=OrderStatus.PENDING,
+        )
+        assert history.notes == ""
+
+
+# ---------------------------------------------------------------------------
+# OrderStatusHistory CASCADE
+# ---------------------------------------------------------------------------
+
+
+class TestOrderStatusHistoryCascade:
+    """Hard-deleting an Order cascades to its history."""
+
+    def test_order_hard_delete_cascades_history(self):
+        order = _make_order()
+        h = OrderStatusHistory.objects.create(
+            order=order,
+            new_status=OrderStatus.PENDING,
+        )
+        h_pk = h.pk
+        order.hard_delete()
+        assert not OrderStatusHistory.objects.filter(pk=h_pk).exists()
+
+
+# ---------------------------------------------------------------------------
+# OrderStatusHistory Display
+# ---------------------------------------------------------------------------
+
+
+class TestOrderStatusHistoryDisplay:
+    """__str__ shows 'ORDER : old_status -> new_status'."""
+
+    def test_str_representation(self):
+        order = _make_order()
+        history = OrderStatusHistory.objects.create(
+            order=order,
+            old_status=OrderStatus.PENDING,
+            new_status=OrderStatus.CONFIRMED,
+        )
+        result = str(history)
+        assert order.order_number in result
+        assert "PENDING" in result
+        assert "CONFIRMED" in result
+        assert "->" in result
+
+    def test_str_with_null_old_status(self):
+        order = _make_order()
+        history = OrderStatusHistory.objects.create(
+            order=order,
+            old_status=None,
+            new_status=OrderStatus.PENDING,
+        )
+        result = str(history)
+        assert "None" in result
+        assert "PENDING" in result
