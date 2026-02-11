@@ -1,8 +1,9 @@
-"""Base abstract models for the ERP system.
+"""Base abstract models and domain infrastructure for the ERP system.
 
 Provides:
 - ``BaseModel``: UUIDv7 primary key + created_at / updated_at timestamps.
 - ``SoftDeleteModel``: Extends BaseModel with soft-delete via ``deleted_at``.
+- ``OutboxEvent``: Transactional Outbox pattern for reliable domain events.
 
 Design decisions (validated by backend-architect):
 - Single ``deleted_at`` field instead of dual ``is_deleted`` + ``deleted_at``
@@ -131,3 +132,92 @@ class SoftDeleteModel(BaseModel):
             return
         self.deleted_at = None
         self.save(update_fields=["deleted_at", "updated_at"])
+
+
+# ---------------------------------------------------------------------------
+# Transactional Outbox
+# ---------------------------------------------------------------------------
+
+
+class EventStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    PUBLISHED = "PUBLISHED", "Published"
+    FAILED = "FAILED", "Failed"
+
+
+class OutboxEvent(BaseModel):
+    """Transactional Outbox for reliable domain event delivery.
+
+    Events are persisted in the **same database transaction** as the business
+    data that produced them, guaranteeing atomicity.  A background worker
+    (implemented in a later phase) reads ``PENDING`` events and publishes
+    them to the message broker.
+
+    Workflow:
+    1. Service creates ``OutboxEvent`` inside ``transaction.atomic()``.
+    2. Worker queries ``status=PENDING`` ordered by ``created_at``.
+    3. On success → ``mark_as_published()``.
+    4. On failure → ``mark_as_failed(error)`` increments ``retry_count``.
+    """
+
+    event_type = models.CharField(max_length=100)
+    payload = models.JSONField()
+    aggregate_id = models.CharField(max_length=255)
+    topic = models.CharField(max_length=100)
+    status = models.CharField(
+        max_length=20,
+        choices=EventStatus.choices,
+        default=EventStatus.PENDING,
+    )
+    processed_at = models.DateTimeField(null=True, blank=True, default=None)
+    error_message = models.TextField(null=True, blank=True, default=None)  # noqa: DJ01
+    retry_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "outbox_events"
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(
+                fields=["event_type"],
+                name="outbox_event_type_idx",
+            ),
+            models.Index(
+                fields=["aggregate_id"],
+                name="outbox_aggregate_id_idx",
+            ),
+            models.Index(
+                fields=["status", "created_at"],
+                name="outbox_status_created_idx",
+            ),
+        ]
+
+    # ------------------------------------------------------------------
+    # State transitions
+    # ------------------------------------------------------------------
+
+    def mark_as_published(self) -> None:
+        """Mark event as successfully published."""
+        self.status = EventStatus.PUBLISHED
+        self.processed_at = timezone.now()
+        self.save(update_fields=["status", "processed_at", "updated_at"])
+
+    def mark_as_failed(self, error: str) -> None:
+        """Mark event as failed and record the error."""
+        self.status = EventStatus.FAILED
+        self.error_message = error
+        self.retry_count += 1
+        self.save(
+            update_fields=[
+                "status",
+                "error_message",
+                "retry_count",
+                "updated_at",
+            ]
+        )
+
+    # ------------------------------------------------------------------
+    # Display
+    # ------------------------------------------------------------------
+
+    def __str__(self) -> str:
+        return f"{self.event_type} [{self.status}] ({self.aggregate_id})"
