@@ -115,83 +115,90 @@ graph TB
 
 ## 5. Diagrama ER (Entidade-Relacionamento)
 
+> Full diagram source: [`docs/erDiagram.mmd`](docs/erDiagram.mmd)
+
 ```mermaid
 erDiagram
-    CUSTOMER ||--o{ ORDER : places
-    ORDER ||--|{ ORDER_ITEM : contains
-    PRODUCT ||--o{ ORDER_ITEM : "included in"
-    ORDER ||--o{ ORDER_STATUS_HISTORY : tracks
-    
-    CUSTOMER {
-        bigint id PK
-        string name
-        string cpf_cnpj UK
-        string email UK
-        string phone
-        text address
-        boolean is_active
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
+    CUSTOMERS ||--o{ ORDERS : "places"
+    PRODUCTS ||--o{ ORDER_ITEMS : "included_in"
+    ORDERS ||--|{ ORDER_ITEMS : "contains"
+    ORDERS ||--o{ ORDER_STATUS_HISTORY : "tracks"
+
+    CUSTOMERS {
+        uuid id PK "UUIDv7"
+        varchar name "max_length=255"
+        varchar document UK "max_length=14"
+        varchar document_type "CPF or CNPJ"
+        varchar email UK "max_length=254"
+        varchar phone "optional"
+        text address "optional"
+        boolean is_active "default=True"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+        datetime deleted_at "Soft Delete"
     }
-    
-    PRODUCT {
-        bigint id PK
-        string sku UK
-        string name
-        text description
-        decimal price
-        int stock_quantity
-        boolean is_active
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
+
+    PRODUCTS {
+        uuid id PK "UUIDv7"
+        varchar sku UK "max_length=64"
+        varchar name "max_length=255"
+        text description "optional"
+        decimal price "Check > 0"
+        int stock_quantity "UNSIGNED, default=0"
+        varchar status "active or inactive"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+        datetime deleted_at "Soft Delete"
     }
-    
-    ORDER {
-        bigint id PK
-        string order_number UK
-        bigint customer_id FK
-        string status
-        decimal total_amount
-        text notes
-        string idempotency_key UK
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
+
+    ORDERS {
+        uuid id PK "UUIDv7"
+        varchar order_number UK "ORD-YYYYMMDD-XXXXXX"
+        uuid customer_id FK "PROTECT"
+        varchar status "PENDING CONFIRMED SEPARATED SHIPPED DELIVERED CANCELLED"
+        decimal total_amount "default=0.00"
+        text notes "optional"
+        varchar idempotency_key UK "nullable"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+        datetime deleted_at "Soft Delete"
     }
-    
-    ORDER_ITEM {
-        bigint id PK
-        bigint order_id FK
-        bigint product_id FK
-        int quantity
-        decimal unit_price
-        decimal subtotal
-        datetime created_at
-        datetime updated_at
+
+    ORDER_ITEMS {
+        uuid id PK "UUIDv7"
+        uuid order_id FK "CASCADE"
+        uuid product_id FK "PROTECT"
+        int quantity "UNSIGNED, Check >= 1"
+        decimal unit_price "price snapshot"
+        decimal subtotal "quantity * unit_price"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+        datetime deleted_at "Soft Delete"
     }
-    
+
     ORDER_STATUS_HISTORY {
-        bigint id PK
-        bigint order_id FK
-        string previous_status
-        string new_status
-        string changed_by
-        text notes
-        datetime changed_at
+        uuid id PK "UUIDv7"
+        uuid order_id FK "CASCADE"
+        varchar old_status "nullable"
+        varchar new_status "required"
+        int user_id FK "SET_NULL, nullable"
+        text notes "optional"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
     }
-    
-    OUTBOX_EVENT {
-        uuid event_id PK
-        string aggregate_type
-        string aggregate_id
-        string event_type
-        json payload
-        datetime occurred_at
-        datetime processed_at
-        int attempts
-        text last_error
+
+    OUTBOX_EVENTS {
+        uuid id PK "UUIDv7"
+        varchar event_type "indexed"
+        json payload "JSONField"
+        varchar aggregate_id "indexed"
+        varchar topic "queue destination"
+        varchar status "PENDING PUBLISHED FAILED"
+        datetime processed_at "nullable"
+        text error_message "nullable"
+        int retry_count "default=0"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
     }
 ```
 

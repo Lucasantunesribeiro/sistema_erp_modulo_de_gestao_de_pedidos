@@ -1,0 +1,125 @@
+erDiagram
+    %% ============================================
+    %% DIAGRAMA ER - ERP ORDER MANAGEMENT
+    %% ============================================
+    %% Auto-generated from Django models (Phase 2 - Core Domain)
+    %% Source files:
+    %%   - src/modules/core/models.py
+    %%   - src/modules/customers/models.py
+    %%   - src/modules/products/models.py
+    %%   - src/modules/orders/models.py
+    %% Last updated: 2026-02-11
+
+    CUSTOMERS ||--o{ ORDERS : "places"
+    PRODUCTS ||--o{ ORDER_ITEMS : "included_in"
+    ORDERS ||--|{ ORDER_ITEMS : "contains"
+    ORDERS ||--o{ ORDER_STATUS_HISTORY : "tracks"
+
+    %% ============================================
+    %% TABELA: customers
+    %% Model: modules.customers.models.Customer
+    %% Inherits: SoftDeleteModel (BaseModel + deleted_at)
+    %% ============================================
+    CUSTOMERS {
+        uuid id PK "UUIDv7 (default uuid6.uuid7)"
+        varchar name "max_length=255"
+        varchar document UK "max_length=14, digits only"
+        varchar document_type "CPF or CNPJ"
+        varchar email UK "max_length=254"
+        varchar phone "max_length=20, optional"
+        text address "optional"
+        boolean is_active "default=True"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+        datetime deleted_at "nullable, indexed (Soft Delete)"
+    }
+
+    %% ============================================
+    %% TABELA: products
+    %% Model: modules.products.models.Product
+    %% Inherits: SoftDeleteModel (BaseModel + deleted_at)
+    %% Constraints: price > 0 (CheckConstraint)
+    %% ============================================
+    PRODUCTS {
+        uuid id PK "UUIDv7"
+        varchar sku UK "max_length=64, uppercased on save"
+        varchar name "max_length=255"
+        text description "optional"
+        decimal price "max_digits=10, decimal_places=2, Check > 0"
+        int stock_quantity "PositiveIntegerField (UNSIGNED), default=0"
+        varchar status "active or inactive, indexed"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+        datetime deleted_at "nullable, indexed (Soft Delete)"
+    }
+
+    %% ============================================
+    %% TABELA: orders
+    %% Model: modules.orders.models.Order
+    %% Inherits: SoftDeleteModel (BaseModel + deleted_at)
+    %% ============================================
+    ORDERS {
+        uuid id PK "UUIDv7"
+        varchar order_number UK "max_length=20, auto-generated ORD-YYYYMMDD-XXXXXX"
+        uuid customer_id FK "PROTECT"
+        varchar status "PENDING, CONFIRMED, SEPARATED, SHIPPED, DELIVERED, CANCELLED"
+        decimal total_amount "max_digits=10, decimal_places=2, default=0.00"
+        text notes "optional"
+        varchar idempotency_key UK "max_length=255, nullable"
+        datetime created_at "auto_now_add, indexed DESC"
+        datetime updated_at "auto_now"
+        datetime deleted_at "nullable, indexed (Soft Delete)"
+    }
+
+    %% ============================================
+    %% TABELA: order_items
+    %% Model: modules.orders.models.OrderItem
+    %% Inherits: SoftDeleteModel (BaseModel + deleted_at)
+    %% Constraints: quantity >= 1 (CheckConstraint)
+    %% ============================================
+    ORDER_ITEMS {
+        uuid id PK "UUIDv7"
+        uuid order_id FK "CASCADE"
+        uuid product_id FK "PROTECT"
+        int quantity "PositiveIntegerField, default=1, Check >= 1"
+        decimal unit_price "max_digits=10, decimal_places=2 (price snapshot)"
+        decimal subtotal "max_digits=10, decimal_places=2 (quantity * unit_price)"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+        datetime deleted_at "nullable, indexed (Soft Delete)"
+    }
+
+    %% ============================================
+    %% TABELA: order_status_history
+    %% Model: modules.orders.models.OrderStatusHistory
+    %% Inherits: BaseModel (NO soft delete - append-only audit)
+    %% ============================================
+    ORDER_STATUS_HISTORY {
+        uuid id PK "UUIDv7"
+        uuid order_id FK "CASCADE"
+        varchar old_status "nullable (None for first record)"
+        varchar new_status "PENDING, CONFIRMED, SEPARATED, SHIPPED, DELIVERED, CANCELLED"
+        int user_id FK "SET_NULL, nullable (None = system)"
+        text notes "optional"
+        datetime created_at "auto_now_add, composite index with order"
+        datetime updated_at "auto_now"
+    }
+
+    %% ============================================
+    %% TABELA: outbox_events
+    %% Model: modules.core.models.OutboxEvent
+    %% Inherits: BaseModel (NO soft delete)
+    %% ============================================
+    OUTBOX_EVENTS {
+        uuid id PK "UUIDv7"
+        varchar event_type "max_length=100, indexed"
+        json payload "JSONField"
+        varchar aggregate_id "max_length=255, indexed"
+        varchar topic "max_length=100"
+        varchar status "PENDING, PUBLISHED, FAILED (indexed with created_at)"
+        datetime processed_at "nullable"
+        text error_message "nullable"
+        int retry_count "default=0"
+        datetime created_at "auto_now_add"
+        datetime updated_at "auto_now"
+    }
