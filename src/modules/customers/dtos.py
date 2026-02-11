@@ -85,6 +85,28 @@ class CreateCustomerDTO(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class UpdateCustomerDTO(BaseModel):
+    """Immutable DTO for customer update requests.
+
+    All fields are optional — only supplied fields will be updated.
+    ``document`` and ``document_type`` are validated together when both
+    are present.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    address: str | None = None
+    is_active: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# Output DTO
+# ---------------------------------------------------------------------------
+
+
 class CustomerOutputDTO(BaseModel):
     """Immutable DTO for customer API responses.
 
