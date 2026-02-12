@@ -25,4 +25,6 @@ VALID_TRANSITIONS: dict[str, set[str]] = {
     OrderStatus.CANCELLED: set(),
 }
 
+TERMINAL_STATES: set[str] = {OrderStatus.DELIVERED, OrderStatus.CANCELLED}
+
 ORDER_NUMBER_MAX_RETRIES = 5

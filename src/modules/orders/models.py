@@ -26,7 +26,12 @@ from django.db import models
 from django.utils import timezone
 
 from modules.core.models import BaseModel, SoftDeleteModel
-from modules.orders.constants import ORDER_NUMBER_MAX_RETRIES, OrderStatus
+from modules.orders.constants import (
+    ORDER_NUMBER_MAX_RETRIES,
+    TERMINAL_STATES,
+    VALID_TRANSITIONS,
+    OrderStatus,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -74,6 +79,20 @@ class Order(SoftDeleteModel):
             models.Index(fields=["status"], name="orders_status_idx"),
             models.Index(fields=["-created_at"], name="orders_created_idx"),
         ]
+
+    # ------------------------------------------------------------------
+    # State Machine helpers
+    # ------------------------------------------------------------------
+
+    @property
+    def is_terminal(self) -> bool:
+        """Return ``True`` if the order is in a terminal state."""
+        return self.status in TERMINAL_STATES
+
+    def can_transition_to(self, new_status: str) -> bool:
+        """Check whether transitioning to *new_status* is valid."""
+        allowed = VALID_TRANSITIONS.get(self.status, set())
+        return new_status in allowed
 
     # ------------------------------------------------------------------
     # Order number generation

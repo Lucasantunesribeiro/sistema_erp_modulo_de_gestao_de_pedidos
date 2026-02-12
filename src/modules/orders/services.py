@@ -22,7 +22,7 @@ import structlog
 
 from django.db import transaction
 
-from modules.orders.constants import VALID_TRANSITIONS, OrderStatus
+from modules.orders.constants import OrderStatus
 from modules.orders.exceptions import (
     CustomerNotFound,
     InactiveCustomer,
@@ -153,6 +153,7 @@ class OrderService:
         )
 
         log.info("order.created", order_id=str(order.id))
+        self._on_order_created(order)
 
         # Re-fetch with prefetch for output
         return self._order_repo.get_by_id(str(order.id))
@@ -166,7 +167,7 @@ class OrderService:
     ) -> Order:
         """Transition an order to a new status.
 
-        Validates the transition against the state machine (RN-PED-001).
+        Uses ``Order.can_transition_to`` for FSM validation (RN-PED-001).
         Records history (RN-PED-002/003).
 
         Raises:
@@ -183,8 +184,7 @@ class OrderService:
             new_status=new_status,
         )
 
-        allowed = VALID_TRANSITIONS.get(order.status, set())
-        if new_status not in allowed:
+        if not order.can_transition_to(new_status):
             log.warning("order.invalid_transition")
             raise InvalidOrderStatus(
                 f"Cannot transition from {order.status} to {new_status}."
@@ -200,6 +200,7 @@ class OrderService:
         )
 
         log.info("order.status_updated")
+        self._dispatch_status_event(order, old_status, new_status)
         return self._order_repo.get_by_id(str(order_id))
 
     @transaction.atomic
@@ -216,8 +217,7 @@ class OrderService:
 
         log = logger.bind(order_id=str(order_id), current_status=order.status)
 
-        allowed = VALID_TRANSITIONS.get(order.status, set())
-        if OrderStatus.CANCELLED not in allowed:
+        if not order.can_transition_to(OrderStatus.CANCELLED):
             log.warning("order.cancel_not_allowed")
             raise InvalidOrderStatus(f"Cannot cancel order in status {order.status}.")
 
@@ -249,6 +249,7 @@ class OrderService:
         )
 
         log.info("order.cancelled")
+        self._on_order_cancelled(order)
         return self._order_repo.get_by_id(str(order_id))
 
     # ------------------------------------------------------------------
@@ -269,3 +270,38 @@ class OrderService:
     def list_orders(self, filters: Optional[Dict[str, Any]] = None) -> List[Order]:
         """Return a list of orders, optionally filtered."""
         return self._order_repo.list(filters)
+
+    # ------------------------------------------------------------------
+    # Domain Event Hooks (Phase 6 — Outbox Pattern)
+    # ------------------------------------------------------------------
+
+    def _on_order_created(self, order: Order) -> None:
+        """Hook: fired after an order is successfully created.
+
+        Will publish ``OrderCreated`` + ``StockReserved`` events once
+        the Outbox pattern is implemented (Phase 6).
+        """
+        logger.info("order.event.created", order_id=str(order.id))
+
+    def _on_order_cancelled(self, order: Order) -> None:
+        """Hook: fired after an order is cancelled.
+
+        Will publish ``OrderCancelled`` + ``StockReleased`` events once
+        the Outbox pattern is implemented (Phase 6).
+        """
+        logger.info("order.event.cancelled", order_id=str(order.id))
+
+    def _dispatch_status_event(
+        self, order: Order, old_status: str, new_status: str
+    ) -> None:
+        """Hook: fired after any status transition.
+
+        Will publish ``OrderStatusChanged`` event once the Outbox
+        pattern is implemented (Phase 6).
+        """
+        logger.info(
+            "order.event.status_changed",
+            order_id=str(order.id),
+            old_status=old_status,
+            new_status=new_status,
+        )
