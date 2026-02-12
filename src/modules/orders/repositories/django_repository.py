@@ -95,13 +95,18 @@ class OrderDjangoRepository(IOrderRepository):
     # ------------------------------------------------------------------
 
     def get_by_id(self, id: str) -> Optional[Order]:
-        """Retrieve an order with prefetched items and status history.
+        """Retrieve an order with eager-loaded relations.
+
+        Uses ``select_related`` for the customer FK (single JOIN) and
+        ``prefetch_related`` for items, items→product, and status
+        history (separate batched queries).  Prevents N+1.
 
         Returns ``None`` for non-existent or invalid IDs.
         """
         try:
             return (
-                Order.objects.prefetch_related("items", "status_history")
+                Order.objects.select_related("customer")
+                .prefetch_related("items__product", "status_history")
                 .filter(id=id)
                 .first()
             )
@@ -109,14 +114,16 @@ class OrderDjangoRepository(IOrderRepository):
             return None
 
     def list(self, filters: Optional[Dict[str, Any]] = None) -> List[Order]:
-        """List orders with optional filters and prefetched relations.
+        """List orders with optional filters and eager-loaded relations.
 
         Supported filter keys:
         - ``status``
         - ``customer_id``
         - ``created_at__range``
         """
-        queryset = Order.objects.prefetch_related("items", "status_history")
+        queryset = Order.objects.select_related("customer").prefetch_related(
+            "items__product", "status_history"
+        )
         if filters:
             queryset = queryset.filter(**filters)
         return list(queryset)
@@ -178,14 +185,15 @@ class OrderDjangoRepository(IOrderRepository):
     def get_for_update(self, id: str) -> Optional[Order]:
         """Retrieve an order with a row-level lock (SELECT FOR UPDATE).
 
-        Prefetches items so the caller can iterate over them while
-        the row is locked.  Returns ``None`` for non-existent or
-        invalid IDs.
+        Eager-loads items (with product) so the caller can iterate
+        over them while the row is locked.  Returns ``None`` for
+        non-existent or invalid IDs.
         """
         try:
             return (
                 Order.objects.select_for_update()
-                .prefetch_related("items", "status_history")
+                .select_related("customer")
+                .prefetch_related("items__product", "status_history")
                 .filter(id=id)
                 .first()
             )
@@ -195,7 +203,8 @@ class OrderDjangoRepository(IOrderRepository):
     def get_by_idempotency_key(self, key: str) -> Optional[Order]:
         """Retrieve an order by its idempotency key."""
         return (
-            Order.objects.prefetch_related("items", "status_history")
+            Order.objects.select_related("customer")
+            .prefetch_related("items__product", "status_history")
             .filter(idempotency_key=key)
             .first()
         )
