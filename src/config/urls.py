@@ -3,20 +3,21 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-
-from django.contrib import admin
-from django.urls import include, path
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
     TokenVerifyView,
 )
 
+from django.contrib import admin
+from django.urls import include, path
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("modules.core.urls")),
     # Domain modules — versioned API
     path("api/v1/", include("modules.customers.urls")),
+    path("api/v1/", include("modules.products.urls")),
     # Auth (SimpleJWT)
     path("api/v1/auth/token/", TokenObtainPairView.as_view(), name="token_obtain"),
     path(

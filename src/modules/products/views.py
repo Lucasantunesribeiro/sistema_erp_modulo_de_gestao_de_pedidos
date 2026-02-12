@@ -1,0 +1,140 @@
+"""Product API views.
+
+Exposes the ``ProductService`` via HTTP using DRF ViewSets.
+Domain exceptions are caught and translated into appropriate
+HTTP status codes — the view never swallows generic exceptions.
+"""
+
+from __future__ import annotations
+
+from pydantic import ValidationError as PydanticValidationError
+
+from rest_framework import status, viewsets
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.request import Request
+from rest_framework.response import Response
+
+from modules.products.dtos import CreateProductDTO, UpdateProductDTO
+from modules.products.exceptions import ProductAlreadyExists, ProductNotFound
+from modules.products.repositories.django_repository import ProductDjangoRepository
+from modules.products.serializers import ProductSerializer
+from modules.products.services import ProductService
+
+
+class ProductViewSet(viewsets.ViewSet):
+    """ViewSet for Product CRUD operations.
+
+    Uses ``ProductService`` with ``ProductDjangoRepository`` (DIP).
+    Does **not** extend ``ModelViewSet`` — all ORM access goes through
+    the service/repository layer.
+    """
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._service = ProductService(repository=ProductDjangoRepository())
+
+    # ------------------------------------------------------------------
+    # List / Retrieve
+    # ------------------------------------------------------------------
+
+    def list(self, request: Request) -> Response:
+        """GET /api/v1/products/"""
+        products = self._service.list_products()
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(products, request)
+        serializer = ProductSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def retrieve(self, request: Request, pk: str = None) -> Response:
+        """GET /api/v1/products/{pk}/"""
+        try:
+            product = self._service.get_product(pk)
+        except ProductNotFound:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = ProductSerializer(product)
+        return Response(serializer.data)
+
+    # ------------------------------------------------------------------
+    # Create / Update / Destroy
+    # ------------------------------------------------------------------
+
+    def create(self, request: Request) -> Response:
+        """POST /api/v1/products/"""
+        data = request.data
+
+        try:
+            dto = CreateProductDTO(
+                sku=data.get("sku", ""),
+                name=data.get("name", ""),
+                price=data.get("price", 0),
+                description=data.get("description", ""),
+                stock_quantity=data.get("stock_quantity", 0),
+            )
+        except (PydanticValidationError, ValueError) as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            product = self._service.create_product(dto)
+        except ProductAlreadyExists as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        out = ProductSerializer(product)
+        return Response(out.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request: Request, pk: str = None) -> Response:
+        """PUT/PATCH /api/v1/products/{pk}/"""
+        data = request.data
+
+        try:
+            dto = UpdateProductDTO(
+                name=data.get("name"),
+                price=data.get("price"),
+                description=data.get("description"),
+                stock_quantity=data.get("stock_quantity"),
+                status=data.get("status"),
+            )
+        except (PydanticValidationError, ValueError) as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            product = self._service.update_product(pk, dto)
+        except ProductNotFound:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ProductAlreadyExists as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        out = ProductSerializer(product)
+        return Response(out.data)
+
+    def partial_update(self, request: Request, pk: str = None) -> Response:
+        """PATCH /api/v1/products/{pk}/"""
+        return self.update(request, pk)
+
+    def destroy(self, request: Request, pk: str = None) -> Response:
+        """DELETE /api/v1/products/{pk}/"""
+        try:
+            self._service.delete_product(pk)
+        except ProductNotFound:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
