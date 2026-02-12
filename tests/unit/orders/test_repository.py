@@ -246,7 +246,7 @@ class TestAddHistory:
         repo.add_history(order.id, OrderStatus.SEPARATED)
 
         count = OrderStatusHistory.objects.filter(order=order).count()
-        assert count == 2
+        assert count == 3
 
 
 # ===========================================================================

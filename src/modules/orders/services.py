@@ -162,13 +162,6 @@ class OrderService:
         order.add_domain_event(created_event)
         self._order_repo.save(order)
 
-        # 4. Record initial history
-        self._order_repo.add_history(
-            order_id=order.id,
-            status=OrderStatus.PENDING,
-            notes="Order created",
-        )
-
         log.info("order.created", order_id=str(order.id))
         self._on_order_created(order)
 
@@ -212,15 +205,9 @@ class OrderService:
 
         old_status = order.status
         order.status = new_status
+        order._status_change_notes = notes
         order.add_domain_event(OrderStatusChanged(aggregate_id=order.id))
         self._order_repo.save(order)
-
-        self._order_repo.add_history(
-            order_id=order.id,
-            status=new_status,
-            notes=notes,
-            old_status=old_status,
-        )
 
         log.info("order.status_updated")
         self._dispatch_status_event(order, old_status, new_status)
@@ -268,18 +255,10 @@ class OrderService:
                 )
 
         # 4. Update status on the already-locked row
-        old_status = order.status
         order.status = OrderStatus.CANCELLED
+        order._status_change_notes = notes or "Order cancelled"
         order.add_domain_event(OrderCancelled(aggregate_id=order.id))
         self._order_repo.save(order)
-
-        # 5. Record history
-        self._order_repo.add_history(
-            order_id=order.id,
-            status=OrderStatus.CANCELLED,
-            notes=notes or "Order cancelled",
-            old_status=old_status,
-        )
 
         log.info("order.cancelled")
         self._on_order_cancelled(order)

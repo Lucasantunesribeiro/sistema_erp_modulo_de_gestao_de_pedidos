@@ -128,11 +128,6 @@ class TestCreateOrder:
         assert result is order
         order_repo.create.assert_called_once()
         order_repo.save.assert_called_once_with(order)
-        order_repo.add_history.assert_called_once_with(
-            order_id=order.id,
-            status=OrderStatus.PENDING,
-            notes="Order created",
-        )
         order_repo.get_by_id.assert_called_once_with(str(order.id))
 
         payload = order_repo.create.call_args.args[0]
@@ -288,7 +283,6 @@ class TestCreateOrder:
         customer_repo.get_by_id.assert_not_called()
         assert not product_cls.objects.select_for_update.called
         order_repo.create.assert_not_called()
-        order_repo.add_history.assert_not_called()
 
 
 class TestUpdateStatus:
@@ -308,12 +302,6 @@ class TestUpdateStatus:
         assert result is order
         assert order.status == OrderStatus.CONFIRMED
         order_repo.save.assert_called_once_with(order)
-        order_repo.add_history.assert_called_once_with(
-            order_id=order.id,
-            status=OrderStatus.CONFIRMED,
-            notes="Approved",
-            old_status=OrderStatus.PENDING,
-        )
 
     def test_update_status_invalid_transition_raises(self, service_and_repos):
         service, order_repo, _, _ = service_and_repos
@@ -328,7 +316,6 @@ class TestUpdateStatus:
 
         order.save.assert_not_called()
         order_repo.save.assert_not_called()
-        order_repo.add_history.assert_not_called()
 
     def test_update_status_order_not_found_raises(self, service_and_repos):
         service, order_repo, _, _ = service_and_repos

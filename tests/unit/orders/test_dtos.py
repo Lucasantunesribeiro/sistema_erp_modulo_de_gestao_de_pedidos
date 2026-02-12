@@ -206,8 +206,10 @@ class TestOrderOutputDTO:
         assert len(dto.items) == 1
         assert dto.items[0].quantity == 3
         assert dto.items[0].product_name == "Product A"
-        assert len(dto.history) == 1
-        assert dto.history[0].new_status == OrderStatus.CONFIRMED
+        assert len(dto.history) == 2
+        statuses = {h.new_status for h in dto.history}
+        assert OrderStatus.PENDING in statuses
+        assert OrderStatus.CONFIRMED in statuses
 
     def test_is_immutable(self, customer, product_a):
         from modules.orders.repositories.django_repository import OrderDjangoRepository

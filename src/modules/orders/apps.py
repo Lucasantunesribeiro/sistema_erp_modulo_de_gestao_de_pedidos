@@ -22,3 +22,6 @@ class OrdersConfig(AppConfig):
         event_bus.subscribe(OrderCreated, order_created_handler)
         event_bus.subscribe(OrderCancelled, order_cancelled_handler)
         event_bus.subscribe(OrderStatusChanged, order_status_changed_handler)
+
+        # Register Django signals
+        from modules.orders import signals  # noqa: F401

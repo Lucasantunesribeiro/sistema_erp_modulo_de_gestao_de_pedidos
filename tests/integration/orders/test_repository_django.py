@@ -288,7 +288,7 @@ class TestOrderRepoHistory:
             status=OrderStatus.CONFIRMED,
         )
         count = OrderStatusHistory.objects.filter(order_id=created_order.id).count()
-        assert count == 1
+        assert count == 2
 
 
 # ===========================================================================
