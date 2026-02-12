@@ -62,6 +62,7 @@ class CreateOrderDTO(BaseModel):
     customer_id: UUID
     items: List[CreateOrderItemDTO]
     notes: Optional[str] = ""
+    idempotency_key: Optional[str] = None
 
     @field_validator("items")
     @classmethod

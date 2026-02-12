@@ -55,11 +55,16 @@ class OrderViewSet(viewsets.ViewSet):
     # ------------------------------------------------------------------
 
     def create(self, request: Request) -> Response:
-        """POST /api/v1/orders/"""
+        """POST /api/v1/orders/
+
+        Supports idempotency via the ``Idempotency-Key`` header.
+        Returns 200 if the key was already used, 201 for new orders.
+        """
         serializer = CreateOrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
+        idempotency_key = request.headers.get("Idempotency-Key")
         dto = CreateOrderDTO(
             customer_id=data["customer_id"],
             items=[
@@ -70,6 +75,7 @@ class OrderViewSet(viewsets.ViewSet):
                 for item in data["items"]
             ],
             notes=data.get("notes", ""),
+            idempotency_key=idempotency_key,
         )
 
         try:

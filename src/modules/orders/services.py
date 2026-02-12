@@ -88,6 +88,17 @@ class OrderService:
         log = logger.bind(customer_id=str(dto.customer_id))
         log.info("order.creation_started")
 
+        # 0. Idempotency check
+        if dto.idempotency_key:
+            existing = self._order_repo.get_by_idempotency_key(dto.idempotency_key)
+            if existing:
+                log.info(
+                    "order.idempotency_hit",
+                    order_id=str(existing.id),
+                    key=dto.idempotency_key,
+                )
+                return existing
+
         # 1. Validate customer
         customer = self._customer_repo.get_by_id(str(dto.customer_id))
         if not customer:
@@ -142,6 +153,7 @@ class OrderService:
                 "customer_id": dto.customer_id,
                 "items": repo_items,
                 "notes": dto.notes or "",
+                "idempotency_key": dto.idempotency_key,
             }
         )
 
