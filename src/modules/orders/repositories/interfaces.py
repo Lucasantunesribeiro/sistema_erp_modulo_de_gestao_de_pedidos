@@ -64,5 +64,13 @@ class IOrderRepository(IRepository["Order"]):
         """
 
     @abstractmethod
+    def get_for_update(self, id: str) -> Optional[Order]:
+        """Retrieve an order with a row-level lock (SELECT FOR UPDATE).
+
+        Used by the Service Layer to prevent concurrent mutations
+        (e.g. double cancellation or race on status transitions).
+        """
+
+    @abstractmethod
     def get_by_idempotency_key(self, key: str) -> Optional[Order]:
         """Retrieve an order by its idempotency key."""

@@ -167,6 +167,8 @@ class OrderService:
     ) -> Order:
         """Transition an order to a new status.
 
+        Acquires a row-level lock (``SELECT FOR UPDATE``) on the order
+        before validating the transition — prevents concurrent mutations.
         Uses ``Order.can_transition_to`` for FSM validation (RN-PED-001).
         Records history (RN-PED-002/003).
 
@@ -174,7 +176,7 @@ class OrderService:
             OrderNotFound: order does not exist.
             InvalidOrderStatus: transition is not allowed.
         """
-        order = self._order_repo.get_by_id(str(order_id))
+        order = self._order_repo.get_for_update(str(order_id))
         if not order:
             raise OrderNotFound(f"Order {order_id} not found.")
 
@@ -191,7 +193,9 @@ class OrderService:
             )
 
         old_status = order.status
-        self._order_repo.update(order.id, {"status": new_status})
+        order.status = new_status
+        order.save(update_fields=["status", "updated_at"])
+
         self._order_repo.add_history(
             order_id=order.id,
             status=new_status,
@@ -207,21 +211,26 @@ class OrderService:
     def cancel_order(self, order_id: UUID, notes: str = "") -> Order:
         """Cancel an order and release reserved stock (RN-EST-005/006).
 
+        Acquires a row-level lock on the order **first** to prevent
+        concurrent cancellations from releasing stock twice.
+
         Raises:
             OrderNotFound: order does not exist.
             InvalidOrderStatus: cancellation not allowed from current status.
         """
-        order = self._order_repo.get_by_id(str(order_id))
+        # 1. Lock the order row
+        order = self._order_repo.get_for_update(str(order_id))
         if not order:
             raise OrderNotFound(f"Order {order_id} not found.")
 
         log = logger.bind(order_id=str(order_id), current_status=order.status)
 
+        # 2. Validate FSM transition
         if not order.can_transition_to(OrderStatus.CANCELLED):
             log.warning("order.cancel_not_allowed")
             raise InvalidOrderStatus(f"Cannot cancel order in status {order.status}.")
 
-        # Release stock — lock products sorted by PK to prevent deadlocks
+        # 3. Release stock — lock products sorted by PK to prevent deadlocks
         from modules.products.models import Product
 
         items = list(order.items.all().order_by("product_id"))
@@ -239,8 +248,12 @@ class OrderService:
                     restored_stock=product.stock_quantity,
                 )
 
+        # 4. Update status on the already-locked row
         old_status = order.status
-        self._order_repo.update(order.id, {"status": OrderStatus.CANCELLED})
+        order.status = OrderStatus.CANCELLED
+        order.save(update_fields=["status", "updated_at"])
+
+        # 5. Record history
         self._order_repo.add_history(
             order_id=order.id,
             status=OrderStatus.CANCELLED,

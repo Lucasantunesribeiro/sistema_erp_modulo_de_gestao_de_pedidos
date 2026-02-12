@@ -175,6 +175,23 @@ class OrderDjangoRepository(IOrderRepository):
         )
         return history
 
+    def get_for_update(self, id: str) -> Optional[Order]:
+        """Retrieve an order with a row-level lock (SELECT FOR UPDATE).
+
+        Prefetches items so the caller can iterate over them while
+        the row is locked.  Returns ``None`` for non-existent or
+        invalid IDs.
+        """
+        try:
+            return (
+                Order.objects.select_for_update()
+                .prefetch_related("items", "status_history")
+                .filter(id=id)
+                .first()
+            )
+        except (ValueError, ValidationError):
+            return None
+
     def get_by_idempotency_key(self, key: str) -> Optional[Order]:
         """Retrieve an order by its idempotency key."""
         return (
