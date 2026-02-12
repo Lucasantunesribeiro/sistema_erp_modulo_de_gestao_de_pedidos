@@ -18,6 +18,7 @@ urlpatterns = [
     # Domain modules — versioned API
     path("api/v1/", include("modules.customers.urls")),
     path("api/v1/", include("modules.products.urls")),
+    path("api/v1/", include("modules.orders.urls")),
     # Auth (SimpleJWT)
     path("api/v1/auth/token/", TokenObtainPairView.as_view(), name="token_obtain"),
     path(
