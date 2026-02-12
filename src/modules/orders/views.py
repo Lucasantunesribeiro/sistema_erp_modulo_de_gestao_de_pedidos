@@ -14,6 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
 from modules.orders.constants import OrderStatus
@@ -52,6 +53,16 @@ class OrderViewSet(viewsets.ViewSet):
             customer_repository=CustomerDjangoRepository(),
             product_repository=ProductDjangoRepository(),
         )
+
+    def get_throttles(self) -> list[BaseThrottle]:
+        """Define escopos de throttling por ação."""
+        if self.action == "create":
+            self.throttle_scope = "order_creation"
+        elif self.action in {"list", "retrieve"}:
+            self.throttle_scope = "order_listing"
+        else:
+            self.throttle_scope = None
+        return super().get_throttles()
 
     # ------------------------------------------------------------------
     # Create
