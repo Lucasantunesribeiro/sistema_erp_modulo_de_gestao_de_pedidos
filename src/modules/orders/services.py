@@ -23,7 +23,7 @@ import structlog
 from django.db import transaction
 
 from modules.orders.constants import OrderStatus
-from modules.orders.events import OrderCreated
+from modules.orders.events import OrderCancelled, OrderCreated, OrderStatusChanged
 from modules.orders.exceptions import (
     CustomerNotFound,
     InactiveCustomer,
@@ -160,6 +160,7 @@ class OrderService:
 
         created_event = OrderCreated(aggregate_id=order.id)
         order.add_domain_event(created_event)
+        self._order_repo.save(order)
 
         # 4. Record initial history
         self._order_repo.add_history(
@@ -173,10 +174,7 @@ class OrderService:
 
         # Re-fetch with prefetch for output
         order_with_relations = self._order_repo.get_by_id(str(order.id))
-        if order_with_relations:
-            order_with_relations.add_domain_event(created_event)
-            return order_with_relations
-        return order
+        return order_with_relations or order
 
     @transaction.atomic
     def update_status(
@@ -214,7 +212,8 @@ class OrderService:
 
         old_status = order.status
         order.status = new_status
-        order.save(update_fields=["status", "updated_at"])
+        order.add_domain_event(OrderStatusChanged(aggregate_id=order.id))
+        self._order_repo.save(order)
 
         self._order_repo.add_history(
             order_id=order.id,
@@ -271,7 +270,8 @@ class OrderService:
         # 4. Update status on the already-locked row
         old_status = order.status
         order.status = OrderStatus.CANCELLED
-        order.save(update_fields=["status", "updated_at"])
+        order.add_domain_event(OrderCancelled(aggregate_id=order.id))
+        self._order_repo.save(order)
 
         # 5. Record history
         self._order_repo.add_history(

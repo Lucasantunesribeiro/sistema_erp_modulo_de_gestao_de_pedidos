@@ -10,6 +10,9 @@ to prevent race conditions (no ``version`` field exists on the model).
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -19,6 +22,7 @@ import structlog
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from modules.core.models import OutboxEvent
 from modules.orders.constants import OrderStatus
 from modules.orders.models import Order, OrderItem, OrderStatusHistory
 from modules.orders.repositories.interfaces import IOrderRepository
@@ -136,7 +140,20 @@ class OrderDjangoRepository(IOrderRepository):
     def save(self, entity: Order) -> Order:
         """Persist (create or update) an order."""
         entity.save()
-        logger.info("order.saved", order_id=str(entity.id))
+
+        events = entity.domain_events if hasattr(entity, "domain_events") else []
+        for event in events:
+            payload = _serialize_event_payload(event)
+            OutboxEvent.objects.create(
+                event_type=event.event_name,
+                aggregate_id=str(event.aggregate_id),
+                payload=payload,
+                topic="orders",
+            )
+        if hasattr(entity, "clear_domain_events"):
+            entity.clear_domain_events()
+
+        logger.info("order.saved", order_id=str(entity.id), event_count=len(events))
         return entity
 
     @transaction.atomic
@@ -208,3 +225,23 @@ class OrderDjangoRepository(IOrderRepository):
             .filter(idempotency_key=key)
             .first()
         )
+
+
+def _serialize_event_payload(event: Any) -> Dict[str, Any]:
+    data = asdict(event)
+    normalized = _normalize_for_json(data)
+    return json.loads(json.dumps(normalized))
+
+
+def _normalize_for_json(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, list):
+        return [_normalize_for_json(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _normalize_for_json(val) for key, val in value.items()}
+    return value

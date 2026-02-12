@@ -127,6 +127,7 @@ class TestCreateOrder:
 
         assert result is order
         order_repo.create.assert_called_once()
+        order_repo.save.assert_called_once_with(order)
         order_repo.add_history.assert_called_once_with(
             order_id=order.id,
             status=OrderStatus.PENDING,
@@ -306,7 +307,7 @@ class TestUpdateStatus:
 
         assert result is order
         assert order.status == OrderStatus.CONFIRMED
-        order.save.assert_called_once_with(update_fields=["status", "updated_at"])
+        order_repo.save.assert_called_once_with(order)
         order_repo.add_history.assert_called_once_with(
             order_id=order.id,
             status=OrderStatus.CONFIRMED,
@@ -326,6 +327,7 @@ class TestUpdateStatus:
             _call_update_status(service, order.id, OrderStatus.PENDING)
 
         order.save.assert_not_called()
+        order_repo.save.assert_not_called()
         order_repo.add_history.assert_not_called()
 
     def test_update_status_order_not_found_raises(self, service_and_repos):
