@@ -10,11 +10,13 @@ from __future__ import annotations
 from uuid import UUID
 
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
+from modules.orders.constants import OrderStatus
 from modules.orders.dtos import CreateOrderDTO, CreateOrderItemDTO
 from modules.orders.exceptions import (
     CustomerNotFound,
@@ -158,11 +160,21 @@ class OrderViewSet(viewsets.ViewSet):
     # ------------------------------------------------------------------
 
     def partial_update(self, request: Request, pk: str = None) -> Response:
-        """PATCH /api/v1/orders/{pk}/"""
+        """PATCH /api/v1/orders/{pk}/
+
+        Updates order status.  Cancellations are **not** allowed via
+        this endpoint — use ``POST /orders/{id}/cancel/`` instead.
+        """
         new_status = request.data.get("status")
         if not new_status:
             return Response(
                 {"detail": "Field 'status' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_status.upper() == OrderStatus.CANCELLED:
+            return Response(
+                {"detail": "Use the /cancel/ endpoint for cancellations."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -172,6 +184,42 @@ class OrderViewSet(viewsets.ViewSet):
             order = self._service.update_status(
                 order_id=UUID(pk),
                 new_status=new_status,
+                notes=notes,
+            )
+        except OrderNotFound:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except InvalidOrderStatus as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError:
+            return Response(
+                {"detail": "Invalid order ID format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    # ------------------------------------------------------------------
+    # Cancel (dedicated action)
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request: Request, pk: str = None) -> Response:
+        """POST /api/v1/orders/{pk}/cancel/
+
+        Cancels an order and releases reserved stock (RN-EST-005/006).
+        """
+        notes = request.data.get("notes", "")
+
+        try:
+            order = self._service.cancel_order(
+                order_id=UUID(pk),
                 notes=notes,
             )
         except OrderNotFound:
