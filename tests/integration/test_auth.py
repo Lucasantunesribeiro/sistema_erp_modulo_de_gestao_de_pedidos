@@ -1,4 +1,4 @@
-"""Integration tests for Auth0 JWT authentication.
+"""Integration tests for JWT authentication (SimpleJWT).
 
 Validates:
   - /health is public (AllowAny — plain Django view, no DRF).

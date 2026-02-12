@@ -115,7 +115,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # DRF Configuration — Fail Closed: everything requires auth by default
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "modules.core.authentication.Auth0JSONWebTokenAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -161,7 +160,7 @@ CSRF_TRUSTED_ORIGINS = config(
 # ---------------------------------------------------------------------------
 SPECTACULAR_SETTINGS = {
     "TITLE": "ERP Order Management API",
-    "DESCRIPTION": "REST API for order management with Auth0 JWT authentication.",
+    "DESCRIPTION": "REST API for order management with JWT authentication.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SECURITY": [{"BearerAuth": []}],

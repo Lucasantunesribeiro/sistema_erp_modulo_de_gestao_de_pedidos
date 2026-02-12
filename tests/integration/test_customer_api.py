@@ -10,15 +10,18 @@ from __future__ import annotations
 
 import pytest
 
+from django.contrib.auth import get_user_model
+
 from rest_framework.test import APIClient
 
-from modules.core.authentication import Auth0User
 from modules.customers.models import Customer, DocumentType
 
 pytestmark = pytest.mark.integration
 
 VALID_CPF = "59860184275"
 VALID_CNPJ = "11222333000181"
+
+User = get_user_model()
 
 
 # ---------------------------------------------------------------------------
@@ -28,9 +31,9 @@ VALID_CNPJ = "11222333000181"
 
 @pytest.fixture()
 def auth_client():
-    """APIClient with a force-authenticated Auth0 user."""
+    """APIClient with a force-authenticated Django user."""
     client = APIClient()
-    user = Auth0User({"sub": "auth0|test-user", "permissions": []})
+    user = User.objects.create_user(username="testuser", password="testpass123")
     client.force_authenticate(user=user)
     return client
 
