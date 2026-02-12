@@ -44,6 +44,8 @@ if _JWKS_URL:
         lifespan=300,
     )
 
+_AUTH0_ENABLED = bool(_jwks_client and AUTH0_AUDIENCE and _ISSUER)
+
 
 class Auth0User:
     """Lightweight user object for requests authenticated via Auth0.
@@ -82,6 +84,14 @@ class Auth0JSONWebTokenAuthentication(BaseAuthentication):
             return None  # no credentials — let other backends try
 
         token = self._extract_token(header)
+
+        # Allow other JWT backends (e.g. SimpleJWT) if Auth0 is not configured
+        # or if the token issuer does not match the Auth0 tenant.
+        if not _AUTH0_ENABLED:
+            return None
+        if not self._token_has_auth0_issuer(token):
+            return None
+
         payload = self._decode_token(token)
         user = Auth0User(payload)
         logger.info(
@@ -104,6 +114,21 @@ class Auth0JSONWebTokenAuthentication(BaseAuthentication):
         if len(parts) != 2 or parts[0].lower() != "bearer":
             raise AuthenticationFailed("Invalid Authorization header format.")
         return parts[1]
+
+    @staticmethod
+    def _token_has_auth0_issuer(token: str) -> bool:
+        try:
+            payload = pyjwt.decode(
+                token,
+                options={
+                    "verify_signature": False,
+                    "verify_aud": False,
+                    "verify_iss": False,
+                },
+            )
+        except PyJWTError:
+            return False
+        return payload.get("iss") == _ISSUER
 
     @staticmethod
     def _decode_token(token: str) -> dict:

@@ -54,6 +54,7 @@ dj-database-url>=2.1.0
 # -----------------------------------------------------------------------------
 PyJWT[crypto]>=2.9.0  # JWT decode/verify RS256 (substitui python-jose - CVE-2025-61152)
 requests>=2.32.0  # JWKS fetch (já transitive, mas declarado explícito)
+djangorestframework-simplejwt>=5.3.1  # JWT local (HS256) para auth via DRF
 
 # -----------------------------------------------------------------------------
 # Testing - PYTEST (OBRIGATÓRIO PELO TESTE)
