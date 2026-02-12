@@ -10,6 +10,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from rest_framework import status, viewsets
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -114,14 +115,29 @@ class OrderViewSet(viewsets.ViewSet):
     # ------------------------------------------------------------------
 
     def list(self, request: Request) -> Response:
-        """GET /api/v1/orders/"""
+        """GET /api/v1/orders/
+
+        Supports filters: ``status``, ``customer_id``, ``date_min``,
+        ``date_max``.  Results are paginated (default page size 20).
+        """
         filters = {}
         if request.query_params.get("status"):
             filters["status"] = request.query_params["status"]
         if request.query_params.get("customer_id"):
             filters["customer_id"] = request.query_params["customer_id"]
+        if request.query_params.get("date_min"):
+            filters["created_at__gte"] = request.query_params["date_min"]
+        if request.query_params.get("date_max"):
+            filters["created_at__lte"] = request.query_params["date_max"]
 
         orders = self._service.list_orders(filters or None)
+
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(orders, request)
+        if page is not None:
+            serializer = OrderListSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
         serializer = OrderListSerializer(orders, many=True)
         return Response(serializer.data)
 

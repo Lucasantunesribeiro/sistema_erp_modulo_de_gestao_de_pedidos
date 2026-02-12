@@ -252,27 +252,30 @@ class TestOrderList:
     def test_list_empty(self, auth_client):
         response = auth_client.get("/api/v1/orders/")
         assert response.status_code == 200
-        assert response.data == []
+        assert response.data["results"] == []
+        assert response.data["count"] == 0
 
     def test_list_returns_orders(self, auth_client, created_order):
         response = auth_client.get("/api/v1/orders/")
         assert response.status_code == 200
-        assert len(response.data) == 1
-        assert response.data[0]["order_number"] == created_order["order_number"]
+        assert response.data["count"] == 1
+        assert (
+            response.data["results"][0]["order_number"] == created_order["order_number"]
+        )
 
     def test_list_filter_by_status(self, auth_client, created_order):
         response = auth_client.get("/api/v1/orders/", {"status": OrderStatus.PENDING})
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert response.data["count"] == 1
 
         response = auth_client.get("/api/v1/orders/", {"status": OrderStatus.CONFIRMED})
         assert response.status_code == 200
-        assert len(response.data) == 0
+        assert response.data["count"] == 0
 
     def test_list_filter_by_customer(self, auth_client, created_order, customer):
         response = auth_client.get("/api/v1/orders/", {"customer_id": str(customer.id)})
         assert response.status_code == 200
-        assert len(response.data) == 1
+        assert response.data["count"] == 1
 
 
 # ===========================================================================
