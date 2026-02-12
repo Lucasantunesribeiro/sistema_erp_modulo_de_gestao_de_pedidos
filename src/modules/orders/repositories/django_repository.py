@@ -152,10 +152,12 @@ class OrderDjangoRepository(IOrderRepository):
         order_id: UUID,
         status: OrderStatus,
         notes: str = "",
+        old_status: Optional[str] = None,
     ) -> OrderStatusHistory:
         """Record a status change in the order's audit trail."""
-        order = Order.objects.filter(id=order_id).first()
-        old_status = order.status if order else None
+        if old_status is None:
+            order = Order.objects.filter(id=order_id).first()
+            old_status = order.status if order else None
 
         history = OrderStatusHistory(
             order_id=order_id,

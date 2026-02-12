@@ -55,8 +55,13 @@ class IOrderRepository(IRepository["Order"]):
         order_id: UUID,
         status: OrderStatus,
         notes: str = "",
+        old_status: Optional[str] = None,
     ) -> OrderStatusHistory:
-        """Record a status change in the order's audit trail."""
+        """Record a status change in the order's audit trail.
+
+        If ``old_status`` is not provided, it is read from the current
+        order row in the database.
+        """
 
     @abstractmethod
     def get_by_idempotency_key(self, key: str) -> Optional[Order]:
