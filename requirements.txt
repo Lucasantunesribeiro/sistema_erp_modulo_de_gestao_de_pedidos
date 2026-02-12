@@ -119,8 +119,7 @@ django-health-check>=3.18.0
 black>=24.0.0
 isort>=5.13.0
 flake8>=6.0.0,<7.0.0
-flake8-django>=1.4
-astroid>=3.0  # Fix flake8-django crash on TypeVar/Generic (visit_typealias)
+# flake8-django removed: incompatible with Python 3.12 (astroid conflict)
 mypy>=1.9.0
 django-stubs>=4.2.0
 pre-commit>=3.7.0
