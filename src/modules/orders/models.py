@@ -32,11 +32,12 @@ from modules.orders.constants import (
     VALID_TRANSITIONS,
     OrderStatus,
 )
+from shared.domain.events import DomainEventMixin
 
 logger = structlog.get_logger(__name__)
 
 
-class Order(SoftDeleteModel):
+class Order(DomainEventMixin, SoftDeleteModel):
     """Order aggregate root.
 
     ``order_number`` is a human-readable identifier auto-generated on first

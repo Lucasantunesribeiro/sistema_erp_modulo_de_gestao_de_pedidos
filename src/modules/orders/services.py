@@ -23,6 +23,7 @@ import structlog
 from django.db import transaction
 
 from modules.orders.constants import OrderStatus
+from modules.orders.events import OrderCreated
 from modules.orders.exceptions import (
     CustomerNotFound,
     InactiveCustomer,
@@ -157,6 +158,9 @@ class OrderService:
             }
         )
 
+        created_event = OrderCreated(aggregate_id=order.id)
+        order.add_domain_event(created_event)
+
         # 4. Record initial history
         self._order_repo.add_history(
             order_id=order.id,
@@ -168,7 +172,11 @@ class OrderService:
         self._on_order_created(order)
 
         # Re-fetch with prefetch for output
-        return self._order_repo.get_by_id(str(order.id))
+        order_with_relations = self._order_repo.get_by_id(str(order.id))
+        if order_with_relations:
+            order_with_relations.add_domain_event(created_event)
+            return order_with_relations
+        return order
 
     @transaction.atomic
     def update_status(
