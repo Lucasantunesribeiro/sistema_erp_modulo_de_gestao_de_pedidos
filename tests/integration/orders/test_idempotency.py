@@ -174,7 +174,7 @@ class TestOrderIdempotencyPayloadMismatch:
         )
 
         assert r1.status_code in {200, 201}
-        assert r2.status_code in {200, 201, 409, 422}
+        assert r2.status_code in {200, 201, 409}
         assert Order.objects.count() == 1
 
         if r2.status_code in {200, 201}:

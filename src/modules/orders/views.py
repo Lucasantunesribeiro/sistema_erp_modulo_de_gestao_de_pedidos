@@ -106,7 +106,7 @@ class OrderViewSet(viewsets.ViewSet):
         except InsufficientStock as exc:
             return Response(
                 {"detail": str(exc)},
-                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status=status.HTTP_409_CONFLICT,
             )
 
         out = OrderSerializer(order)

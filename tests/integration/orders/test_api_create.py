@@ -3,7 +3,7 @@
 Covers:
 - Success 201: create a valid order with items.
 - Validation 400: invalid payloads (missing items, zero quantity).
-- Business 404/400/422: customer not found, inactive, insufficient stock.
+- Business 404/400/409: customer not found, inactive, insufficient stock.
 - Idempotency: duplicate requests with same key return same order.
 - Stock deduction: products stock decremented on creation.
 """
@@ -226,7 +226,7 @@ class TestOrderCreateValidation:
 
 
 # ===========================================================================
-# Business Errors (404 / 400 / 422)
+# Business Errors (404 / 400 / 409)
 # ===========================================================================
 
 
@@ -278,7 +278,7 @@ class TestOrderCreateBusinessErrors:
         assert response.status_code == 400
         assert "inactive" in response.data["detail"].lower()
 
-    def test_insufficient_stock_returns_422(
+    def test_insufficient_stock_returns_409(
         self, auth_client, customer, low_stock_product
     ):
         payload = {
@@ -288,7 +288,7 @@ class TestOrderCreateBusinessErrors:
             ],
         }
         response = auth_client.post("/api/v1/orders/", payload, format="json")
-        assert response.status_code == 422
+        assert response.status_code == 409
         assert "available" in response.data["detail"].lower()
 
 

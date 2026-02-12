@@ -5,7 +5,7 @@ Covers:
 - Order list via GET /api/v1/orders/.
 - Order retrieve via GET /api/v1/orders/{id}/.
 - Status update via PATCH /api/v1/orders/{id}/.
-- Domain exception mapping (400, 404, 422).
+- Domain exception mapping (400, 404, 409).
 - Authentication enforcement (401 without token).
 """
 
@@ -215,7 +215,7 @@ class TestOrderCreate:
         response = auth_client.post("/api/v1/orders/", payload, format="json")
         assert response.status_code == 400
 
-    def test_create_insufficient_stock_returns_422(
+    def test_create_insufficient_stock_returns_409(
         self, auth_client, customer, low_stock_product
     ):
         payload = {
@@ -225,7 +225,7 @@ class TestOrderCreate:
             ],
         }
         response = auth_client.post("/api/v1/orders/", payload, format="json")
-        assert response.status_code == 422
+        assert response.status_code == 409
 
     def test_create_empty_items_returns_400(self, auth_client, customer):
         payload = {
