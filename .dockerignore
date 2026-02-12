@@ -23,3 +23,4 @@ coverage/
 db.sqlite3
 media/
 static/
+claude_resume.md
