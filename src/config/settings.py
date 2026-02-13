@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_filters",
     "drf_spectacular",
+    "drf_standardized_errors",
     # Local Apps (Modules)
     "modules.core",
     "modules.customers",
@@ -149,6 +150,7 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    "EXCEPTION_HANDLER": "drf_standardized_errors.handler.exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
@@ -196,6 +198,10 @@ SPECTACULAR_SETTINGS = {
             }
         }
     },
+}
+
+DRF_STANDARDIZED_ERRORS = {
+    "ENABLE_IN_DEBUG_FOR_UNHANDLED_EXCEPTIONS": True,
 }
 
 # ---------------------------------------------------------------------------
