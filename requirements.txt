@@ -122,6 +122,7 @@ flake8>=6.0.0,<7.0.0
 # flake8-django removed: incompatible with Python 3.12 (astroid conflict)
 mypy>=1.9.0
 django-stubs>=4.2.0
+djangorestframework-stubs>=3.15.0
 pre-commit>=3.7.0
 
 # -----------------------------------------------------------------------------

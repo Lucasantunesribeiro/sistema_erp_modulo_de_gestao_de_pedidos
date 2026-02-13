@@ -35,16 +35,16 @@ class Product(SoftDeleteModel):
     UNIQUE INDEX in MySQL — no additional index is needed.
     """
 
-    sku = models.CharField(max_length=64, unique=True)
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, default="")
-    price = models.DecimalField(
+    sku: models.CharField = models.CharField(max_length=64, unique=True)
+    name: models.CharField = models.CharField(max_length=255)
+    description: models.TextField = models.TextField(blank=True, default="")
+    price: models.DecimalField = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.01"))],
     )
-    stock_quantity = models.PositiveIntegerField(default=0)
-    status = models.CharField(
+    stock_quantity: models.PositiveIntegerField = models.PositiveIntegerField(default=0)
+    status: models.CharField = models.CharField(
         max_length=20,
         choices=ProductStatus.choices,
         default=ProductStatus.ACTIVE,

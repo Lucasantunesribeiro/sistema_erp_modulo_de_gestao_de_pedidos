@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import secrets
 from decimal import Decimal
+from typing import Any
 
 import structlog
 from django.conf import settings
@@ -48,24 +49,26 @@ class Order(DomainEventMixin, SoftDeleteModel):
     column, so non-API orders will not collide.
     """
 
-    order_number = models.CharField(max_length=20, unique=True, editable=False)
-    customer = models.ForeignKey(
+    order_number: models.CharField = models.CharField(
+        max_length=20, unique=True, editable=False
+    )
+    customer: models.ForeignKey = models.ForeignKey(
         "customers.Customer",
         on_delete=models.PROTECT,
         related_name="orders",
     )
-    status = models.CharField(
+    status: models.CharField = models.CharField(
         max_length=20,
         choices=OrderStatus.choices,
         default=OrderStatus.PENDING,
     )
-    total_amount = models.DecimalField(
+    total_amount: models.DecimalField = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal("0.00"),
     )
-    notes = models.TextField(blank=True, default="")
-    idempotency_key = models.CharField(
+    notes: models.TextField = models.TextField(blank=True, default="")
+    idempotency_key: models.CharField = models.CharField(
         max_length=255,
         unique=True,
         null=True,
@@ -109,7 +112,7 @@ class Order(DomainEventMixin, SoftDeleteModel):
     # Persistence
     # ------------------------------------------------------------------
 
-    def save(self, *args, **kwargs) -> None:
+    def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.order_number:
             for attempt in range(ORDER_NUMBER_MAX_RETRIES):
                 candidate = self.generate_order_number()
@@ -142,25 +145,25 @@ class OrderItem(SoftDeleteModel):
     Order is hard-deleted, CASCADE removes items at the database level.
     """
 
-    order = models.ForeignKey(
+    order: models.ForeignKey = models.ForeignKey(
         "orders.Order",
         on_delete=models.CASCADE,
         related_name="items",
     )
-    product = models.ForeignKey(
+    product: models.ForeignKey = models.ForeignKey(
         "products.Product",
         on_delete=models.PROTECT,
         related_name="order_items",
     )
-    quantity = models.PositiveIntegerField(
+    quantity: models.PositiveIntegerField = models.PositiveIntegerField(
         default=1,
         validators=[MinValueValidator(1)],
     )
-    unit_price = models.DecimalField(
+    unit_price: models.DecimalField = models.DecimalField(
         max_digits=10,
         decimal_places=2,
     )
-    subtotal = models.DecimalField(
+    subtotal: models.DecimalField = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         editable=False,
@@ -189,9 +192,12 @@ class OrderItem(SoftDeleteModel):
     # Persistence
     # ------------------------------------------------------------------
 
-    def save(self, *args, **kwargs) -> None:
+    def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.unit_price:
-            self.unit_price = self.product.price
+            unit_price = getattr(self.product, "price", None)
+            if unit_price is None:
+                raise ValidationError({"unit_price": "Product price is required."})
+            self.unit_price = unit_price
         self.subtotal = self.quantity * self.unit_price
         super().save(*args, **kwargs)
 
@@ -215,28 +221,28 @@ class OrderStatusHistory(BaseModel):
     performed by the system (e.g. automatic cancellation).
     """
 
-    order = models.ForeignKey(
+    order: models.ForeignKey = models.ForeignKey(
         "orders.Order",
         on_delete=models.CASCADE,
         related_name="status_history",
     )
-    old_status = models.CharField(  # noqa: DJ01
+    old_status: models.CharField = models.CharField(  # noqa: DJ01
         max_length=20,
         choices=OrderStatus.choices,
         null=True,
         blank=True,
     )
-    new_status = models.CharField(
+    new_status: models.CharField = models.CharField(
         max_length=20,
         choices=OrderStatus.choices,
     )
-    user = models.ForeignKey(
+    user: models.ForeignKey = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
     )
-    notes = models.TextField(blank=True, default="")
+    notes: models.TextField = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "order_status_history"

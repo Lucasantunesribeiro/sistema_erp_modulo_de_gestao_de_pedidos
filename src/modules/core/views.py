@@ -1,9 +1,10 @@
 import time
+from typing import Any, Dict
 
 import structlog
 from django.core.cache import cache
 from django.db import connections
-from django.http import JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -12,8 +13,8 @@ from rest_framework.views import APIView
 logger = structlog.get_logger()
 
 
-def health_check(request):
-    services = {}
+def health_check(request: HttpRequest) -> JsonResponse:
+    services: Dict[str, Dict[str, Any]] = {}
     overall_healthy = True
 
     # Check database
@@ -76,7 +77,7 @@ class ProtectedView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: HttpRequest) -> Response:
         return Response(
             {
                 "message": "authenticated",

@@ -1,7 +1,9 @@
 import uuid
 from contextvars import ContextVar
+from typing import Callable
 
 import structlog
+from django.http import HttpRequest, HttpResponse
 
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 
@@ -17,10 +19,10 @@ class CorrelationIdMiddleware:
     client via the X-Request-ID response header.
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         cid = request.META.get("HTTP_X_REQUEST_ID") or str(uuid.uuid4())
         correlation_id_var.set(cid)
 

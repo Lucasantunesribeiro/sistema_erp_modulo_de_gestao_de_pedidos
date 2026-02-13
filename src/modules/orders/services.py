@@ -15,7 +15,7 @@ Business rules enforced:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 from uuid import UUID
 
 import structlog
@@ -118,8 +118,9 @@ class OrderService:
                 .filter(id=item_dto.product_id)
                 .first()
             )
-            if not product:
+            if product is None:
                 raise ProductNotFound(f"Product {item_dto.product_id} not found.")
+            product = cast(Product, product)
             if product.status != "active":
                 raise InactiveProduct(f"Product {item_dto.product_id} is inactive.")
             if product.stock_quantity < item_dto.quantity:
@@ -187,7 +188,7 @@ class OrderService:
             InvalidOrderStatus: transition is not allowed.
         """
         order = self._order_repo.get_for_update(str(order_id))
-        if not order:
+        if order is None:
             raise OrderNotFound(f"Order {order_id} not found.")
 
         log = logger.bind(
@@ -225,7 +226,7 @@ class OrderService:
         """
         # 1. Lock the order row
         order = self._order_repo.get_for_update(str(order_id))
-        if not order:
+        if order is None:
             raise OrderNotFound(f"Order {order_id} not found.")
 
         log = logger.bind(order_id=str(order_id), current_status=order.status)
@@ -243,7 +244,8 @@ class OrderService:
             product = (
                 Product.objects.select_for_update().filter(id=item.product_id).first()
             )
-            if product:
+            if product is not None:
+                product = cast(Product, product)
                 product.stock_quantity += item.quantity
                 product.save(update_fields=["stock_quantity", "updated_at"])
                 log.info(

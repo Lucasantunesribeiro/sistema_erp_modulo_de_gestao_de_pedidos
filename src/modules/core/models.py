@@ -29,13 +29,13 @@ from django.utils import timezone
 class BaseModel(models.Model):
     """Abstract base with UUIDv7 PK and timestamp bookkeeping."""
 
-    id = models.UUIDField(
+    id: models.UUIDField = models.UUIDField(
         primary_key=True,
         default=uuid6.uuid7,
         editable=False,
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True
@@ -96,7 +96,7 @@ class SoftDeleteModel(BaseModel):
     - ``delete()`` performs a soft-delete; ``hard_delete()`` removes physically.
     """
 
-    deleted_at = models.DateTimeField(
+    deleted_at: models.DateTimeField = models.DateTimeField(
         null=True,
         blank=True,
         default=None,
@@ -159,18 +159,22 @@ class OutboxEvent(BaseModel):
     4. On failure → ``mark_as_failed(error)`` increments ``retry_count``.
     """
 
-    event_type = models.CharField(max_length=100)
-    payload = models.JSONField()
-    aggregate_id = models.CharField(max_length=255)
-    topic = models.CharField(max_length=100)
-    status = models.CharField(
+    event_type: models.CharField = models.CharField(max_length=100)
+    payload: models.JSONField = models.JSONField()
+    aggregate_id: models.CharField = models.CharField(max_length=255)
+    topic: models.CharField = models.CharField(max_length=100)
+    status: models.CharField = models.CharField(
         max_length=20,
         choices=EventStatus.choices,
         default=EventStatus.PENDING,
     )
-    processed_at = models.DateTimeField(null=True, blank=True, default=None)
-    error_message = models.TextField(null=True, blank=True, default=None)  # noqa: DJ01
-    retry_count = models.PositiveIntegerField(default=0)
+    processed_at: models.DateTimeField = models.DateTimeField(
+        null=True, blank=True, default=None
+    )
+    error_message: models.TextField = models.TextField(
+        null=True, blank=True, default=None
+    )  # noqa: DJ01
+    retry_count: models.PositiveIntegerField = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = "outbox_events"
