@@ -8,11 +8,11 @@ how to translate a missing entity into an API response.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import structlog
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import models, transaction
 
 from modules.products.models import Product
 from modules.products.repositories.interfaces import IProductRepository
@@ -33,7 +33,7 @@ class ProductDjangoRepository(IProductRepository):
         except (ValueError, ValidationError):
             return None
 
-    def list(self, filters: Optional[Dict[str, Any]] = None) -> List[Product]:
+    def list(self, filters: Optional[Dict[str, Any]] = None) -> models.QuerySet:
         """List products with optional Django ORM look-ups.
 
         Examples of valid filters::
@@ -44,7 +44,7 @@ class ProductDjangoRepository(IProductRepository):
         queryset = Product.objects.all()
         if filters:
             queryset = queryset.filter(**filters)
-        return list(queryset)
+        return queryset
 
     @transaction.atomic
     def save(self, entity: Product) -> Product:

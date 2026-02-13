@@ -144,7 +144,7 @@ REST_FRAMEWORK = {
         "order_creation": "5/minute",
         "order_listing": "100/minute",
     },
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "modules.core.pagination.StandardResultsSetPagination",
     "PAGE_SIZE": config("DEFAULT_PAGE_SIZE", default=20, cast=int),
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_RENDERER_CLASSES": [

@@ -11,11 +11,12 @@ from uuid import UUID
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.filters import OrderingFilter
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import BaseThrottle
 
+from modules.core.pagination import StandardResultsSetPagination
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
 from modules.orders.constants import OrderStatus
 from modules.orders.dtos import CreateOrderDTO, CreateOrderItemDTO
@@ -45,6 +46,10 @@ class OrderViewSet(viewsets.ViewSet):
     Does **not** extend ``ModelViewSet`` — all ORM access goes through
     the service/repository layer.
     """
+
+    ordering_fields = ["created_at", "id", "status"]
+    ordering = ["-created_at", "-id"]
+    filter_backends = [OrderingFilter]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -144,8 +149,18 @@ class OrderViewSet(viewsets.ViewSet):
             filters["created_at__lte"] = request.query_params["date_max"]
 
         orders = self._service.list_orders(filters or None)
+        if request.query_params.get("ordering"):
+            ordering_params = [
+                field.strip()
+                for field in request.query_params.get("ordering", "").split(",")
+                if field.strip()
+            ]
+            if ordering_params:
+                orders = orders.order_by(*ordering_params)
+        else:
+            orders = orders.order_by(*self.ordering)
 
-        paginator = PageNumberPagination()
+        paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(orders, request)
         if page is not None:
             serializer = OrderListSerializer(page, many=True)
@@ -251,3 +266,6 @@ class OrderViewSet(viewsets.ViewSet):
 
         serializer = OrderSerializer(order)
         return Response(serializer.data)
+
+    ordering_fields = ["created_at", "id", "status"]
+    ordering = ["-created_at", "-id"]

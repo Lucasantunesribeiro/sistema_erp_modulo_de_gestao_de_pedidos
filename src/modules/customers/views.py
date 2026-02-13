@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, viewsets
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.filters import OrderingFilter
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from modules.core.pagination import StandardResultsSetPagination
 from modules.customers.dtos import CreateCustomerDTO, UpdateCustomerDTO
 from modules.customers.exceptions import CustomerAlreadyExists, CustomerNotFound
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
@@ -28,6 +29,10 @@ class CustomerViewSet(viewsets.ViewSet):
     the service/repository layer.
     """
 
+    ordering_fields = ["created_at", "id", "name", "email"]
+    ordering = ["-created_at", "-id"]
+    filter_backends = [OrderingFilter]
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._service = CustomerService(repository=CustomerDjangoRepository())
@@ -39,7 +44,17 @@ class CustomerViewSet(viewsets.ViewSet):
     def list(self, request: Request) -> Response:
         """GET /api/v1/customers/"""
         customers = self._service.list_customers()
-        paginator = PageNumberPagination()
+        if request.query_params.get("ordering"):
+            ordering_params = [
+                field.strip()
+                for field in request.query_params.get("ordering", "").split(",")
+                if field.strip()
+            ]
+            if ordering_params:
+                customers = customers.order_by(*ordering_params)
+        else:
+            customers = customers.order_by(*self.ordering)
+        paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(customers, request)
         serializer = CustomerSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
@@ -132,3 +147,6 @@ class CustomerViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    ordering_fields = ["created_at", "id", "name", "email"]
+    ordering = ["-created_at", "-id"]

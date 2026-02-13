@@ -11,10 +11,10 @@ Business rules enforced here:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import structlog
-from django.db import transaction
+from django.db import models, transaction
 
 from modules.customers.exceptions import CustomerAlreadyExists, CustomerNotFound
 from modules.customers.models import Customer
@@ -106,7 +106,7 @@ class CustomerService:
 
     def list_customers(
         self, filters: Optional[Dict[str, Any]] = None
-    ) -> List[Customer]:
+    ) -> "models.QuerySet[Customer]":
         """Return a list of customers, optionally filtered."""
         return self._repo.list(filters)
 

@@ -12,10 +12,10 @@ Business rules enforced here:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import structlog
-from django.db import transaction
+from django.db import models, transaction
 
 from modules.products.exceptions import ProductAlreadyExists, ProductNotFound
 from modules.products.models import Product
@@ -90,7 +90,9 @@ class ProductService:
     # Queries
     # ------------------------------------------------------------------
 
-    def list_products(self, filters: Optional[Dict[str, Any]] = None) -> List[Product]:
+    def list_products(
+        self, filters: Optional[Dict[str, Any]] = None
+    ) -> "models.QuerySet[Product]":
         """Return a list of products, optionally filtered."""
         return self._repo.list(filters)
 

@@ -14,12 +14,12 @@ import json
 from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 import structlog
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import models, transaction
 
 from modules.core.models import OutboxEvent
 from modules.orders.constants import OrderStatus
@@ -116,7 +116,7 @@ class OrderDjangoRepository(IOrderRepository):
         except (ValueError, ValidationError):
             return None
 
-    def list(self, filters: Optional[Dict[str, Any]] = None) -> List[Order]:
+    def list(self, filters: Optional[Dict[str, Any]] = None) -> models.QuerySet:
         """List orders with optional filters and eager-loaded relations.
 
         Supported filter keys:
@@ -129,7 +129,7 @@ class OrderDjangoRepository(IOrderRepository):
         )
         if filters:
             queryset = queryset.filter(**filters)
-        return list(queryset)
+        return queryset
 
     # ------------------------------------------------------------------
     # Save / Delete (IRepository contract)

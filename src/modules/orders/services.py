@@ -15,11 +15,11 @@ Business rules enforced:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 from uuid import UUID
 
 import structlog
-from django.db import transaction
+from django.db import models, transaction
 
 from modules.orders.constants import OrderStatus
 from modules.orders.events import OrderCancelled, OrderCreated, OrderStatusChanged
@@ -280,7 +280,9 @@ class OrderService:
             raise OrderNotFound(f"Order {order_id} not found.")
         return order
 
-    def list_orders(self, filters: Optional[Dict[str, Any]] = None) -> List[Order]:
+    def list_orders(
+        self, filters: Optional[Dict[str, Any]] = None
+    ) -> "models.QuerySet[Order]":
         """Return a list of orders, optionally filtered."""
         return self._order_repo.list(filters)
 
