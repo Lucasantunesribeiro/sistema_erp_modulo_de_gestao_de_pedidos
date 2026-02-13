@@ -13,10 +13,9 @@ from __future__ import annotations
 import re
 
 import structlog
-from validate_docbr import CNPJ, CPF
-
 from django.core.exceptions import ValidationError
 from django.db import models
+from validate_docbr import CNPJ, CPF
 
 from modules.core.models import SoftDeleteModel
 

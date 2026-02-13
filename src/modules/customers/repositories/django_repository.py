@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 import structlog
-
 from django.core.exceptions import ValidationError
 from django.db import transaction
 

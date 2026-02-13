@@ -9,10 +9,9 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from freezegun import freeze_time
-
 from django.db import connection, models
 from django.utils import timezone
+from freezegun import freeze_time
 
 from modules.core.models import BaseModel, SoftDeleteManager, SoftDeleteModel
 

@@ -1,3 +1,5 @@
+from django.contrib import admin
+from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -8,9 +10,6 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
-
-from django.contrib import admin
-from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),

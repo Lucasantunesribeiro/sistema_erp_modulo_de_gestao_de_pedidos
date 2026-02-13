@@ -18,7 +18,6 @@ Design decisions (validated by backend-architect):
 from __future__ import annotations
 
 import uuid6
-
 from django.db import models
 from django.utils import timezone
 

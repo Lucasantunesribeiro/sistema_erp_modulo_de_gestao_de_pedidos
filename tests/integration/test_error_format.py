@@ -1,9 +1,7 @@
 """Integration tests for standardized error responses."""
 
 import pytest
-
 from django.contrib.auth import get_user_model
-
 from rest_framework.test import APIClient
 
 pytestmark = pytest.mark.integration
@@ -33,7 +31,9 @@ class TestStandardizedErrors:
         assert "detail" in data["errors"][0]
 
     def test_validation_error_has_standard_format(self, auth_client):
-        response = auth_client.post("/api/v1/customers/", data="{", content_type="application/json")
+        response = auth_client.post(
+            "/api/v1/customers/", data="{", content_type="application/json"
+        )
         assert response.status_code == 400
         data = response.json()
         assert "type" in data

@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
-
 from django.db import transaction
 
 from modules.orders.constants import OrderStatus

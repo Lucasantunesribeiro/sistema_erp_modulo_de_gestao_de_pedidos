@@ -13,9 +13,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-
 from django.contrib.auth import get_user_model
-
 from rest_framework.test import APIClient
 
 from modules.customers.models import Customer, DocumentType

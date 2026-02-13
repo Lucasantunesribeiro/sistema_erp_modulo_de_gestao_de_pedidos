@@ -8,7 +8,6 @@ HTTP status codes — the view never swallows generic exceptions.
 from __future__ import annotations
 
 from pydantic import ValidationError as PydanticValidationError
-
 from rest_framework import status, viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request

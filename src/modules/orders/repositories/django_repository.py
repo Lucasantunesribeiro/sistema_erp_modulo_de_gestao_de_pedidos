@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
-
 from django.core.exceptions import ValidationError
 from django.db import transaction
 

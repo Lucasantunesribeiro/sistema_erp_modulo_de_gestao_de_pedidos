@@ -18,7 +18,6 @@ import secrets
 from decimal import Decimal
 
 import structlog
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator

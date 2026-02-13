@@ -14,7 +14,6 @@ from __future__ import annotations
 import uuid
 
 import pytest
-
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 

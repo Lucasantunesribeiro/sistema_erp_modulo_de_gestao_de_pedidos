@@ -35,6 +35,7 @@ RUN pip install --no-cache /wheels/*
 RUN playwright install --with-deps chromium
 
 COPY . .
+RUN rm -rf /app/.agent
 
 EXPOSE 8000
 
@@ -58,6 +59,7 @@ COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache /wheels/*
 
 COPY . .
+RUN rm -rf /app/.agent
 
 RUN adduser --disabled-password --gecos '' appuser && chown -R appuser:appuser /app
 USER appuser

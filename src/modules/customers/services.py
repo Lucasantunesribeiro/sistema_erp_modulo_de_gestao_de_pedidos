@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import structlog
-
 from django.db import transaction
 
 from modules.customers.exceptions import CustomerAlreadyExists, CustomerNotFound

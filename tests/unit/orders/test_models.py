@@ -28,11 +28,10 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
-from validate_docbr import CPF as CPFGenerator
-
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db.models import ProtectedError
+from validate_docbr import CPF as CPFGenerator
 
 from modules.customers.models import Customer, DocumentType
 from modules.orders.constants import VALID_TRANSITIONS, OrderStatus

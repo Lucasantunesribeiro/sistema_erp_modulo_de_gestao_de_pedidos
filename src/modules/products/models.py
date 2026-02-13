@@ -13,7 +13,6 @@ from __future__ import annotations
 from decimal import Decimal
 
 import structlog
-
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
