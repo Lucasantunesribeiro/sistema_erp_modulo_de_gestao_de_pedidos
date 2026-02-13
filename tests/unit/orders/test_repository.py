@@ -184,7 +184,7 @@ class TestList:
 
     def test_returns_empty_list_when_no_orders(self, repo):
         results = repo.list()
-        assert results == []
+        assert len(results) == 0
 
     def test_filters_by_status(self, repo, order_data):
         repo.create(order_data)

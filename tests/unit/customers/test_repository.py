@@ -108,7 +108,7 @@ class TestList:
 
     def test_returns_empty_list_when_no_customers(self, repo):
         result = repo.list()
-        assert result == []
+        assert len(result) == 0
 
     def test_filters_by_is_active(self, repo):
         _make_customer(document=VALID_CPF, email="active@test.com", is_active=True)

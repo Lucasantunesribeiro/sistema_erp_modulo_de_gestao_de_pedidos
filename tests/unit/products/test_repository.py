@@ -100,7 +100,7 @@ class TestList:
     def test_returns_empty_list_when_no_products(self):
         repo = ProductDjangoRepository()
         results = repo.list()
-        assert results == []
+        assert len(results) == 0
 
     def test_filters_by_status(self):
         _make_product(sku="SKU-A", status=ProductStatus.ACTIVE)
