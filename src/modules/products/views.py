@@ -7,21 +7,24 @@ HTTP status codes — the view never swallows generic exceptions.
 
 from __future__ import annotations
 
+from django_filters.rest_framework import DjangoFilterBackend
 from pydantic import ValidationError as PydanticValidationError
-from rest_framework import status, viewsets
-from rest_framework.filters import OrderingFilter
+from rest_framework import status
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.viewsets import GenericViewSet
 
 from modules.core.pagination import StandardResultsSetPagination
 from modules.products.dtos import CreateProductDTO, UpdateProductDTO
 from modules.products.exceptions import ProductAlreadyExists, ProductNotFound
+from modules.products.filters import ProductFilter
 from modules.products.repositories.django_repository import ProductDjangoRepository
 from modules.products.serializers import ProductSerializer
 from modules.products.services import ProductService
 
 
-class ProductViewSet(viewsets.ViewSet):
+class ProductViewSet(GenericViewSet):
     """ViewSet for Product CRUD operations.
 
     Uses ``ProductService`` with ``ProductDjangoRepository`` (DIP).
@@ -29,9 +32,11 @@ class ProductViewSet(viewsets.ViewSet):
     the service/repository layer.
     """
 
-    ordering_fields = ["created_at", "id", "sku", "name", "price"]
+    filterset_class = ProductFilter
+    search_fields = ["name", "sku", "description"]
+    ordering_fields = ["name", "price", "stock_quantity"]
     ordering = ["-created_at", "-id"]
-    filter_backends = [OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -44,6 +49,7 @@ class ProductViewSet(viewsets.ViewSet):
     def list(self, request: Request) -> Response:
         """GET /api/v1/products/"""
         products = self._service.list_products()
+        products = self.filter_queryset(products)
         if request.query_params.get("ordering"):
             ordering_params = [
                 field.strip()

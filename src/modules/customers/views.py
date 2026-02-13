@@ -7,21 +7,24 @@ HTTP status codes — the view never swallows generic exceptions.
 
 from __future__ import annotations
 
+from django_filters.rest_framework import DjangoFilterBackend
 from pydantic import ValidationError as PydanticValidationError
-from rest_framework import status, viewsets
-from rest_framework.filters import OrderingFilter
+from rest_framework import status
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.viewsets import GenericViewSet
 
 from modules.core.pagination import StandardResultsSetPagination
 from modules.customers.dtos import CreateCustomerDTO, UpdateCustomerDTO
 from modules.customers.exceptions import CustomerAlreadyExists, CustomerNotFound
+from modules.customers.filters import CustomerFilter
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
 from modules.customers.serializers import CustomerSerializer
 from modules.customers.services import CustomerService
 
 
-class CustomerViewSet(viewsets.ViewSet):
+class CustomerViewSet(GenericViewSet):
     """ViewSet for Customer CRUD operations.
 
     Uses ``CustomerService`` with ``CustomerDjangoRepository`` (DIP).
@@ -29,9 +32,11 @@ class CustomerViewSet(viewsets.ViewSet):
     the service/repository layer.
     """
 
-    ordering_fields = ["created_at", "id", "name", "email"]
+    filterset_class = CustomerFilter
+    search_fields = ["name", "email", "document"]
+    ordering_fields = ["name", "created_at"]
     ordering = ["-created_at", "-id"]
-    filter_backends = [OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -44,6 +49,7 @@ class CustomerViewSet(viewsets.ViewSet):
     def list(self, request: Request) -> Response:
         """GET /api/v1/customers/"""
         customers = self._service.list_customers()
+        customers = self.filter_queryset(customers)
         if request.query_params.get("ordering"):
             ordering_params = [
                 field.strip()

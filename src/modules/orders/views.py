@@ -9,12 +9,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from rest_framework import status, viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import BaseThrottle
+from rest_framework.viewsets import GenericViewSet
 
 from modules.core.pagination import StandardResultsSetPagination
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
@@ -29,6 +31,7 @@ from modules.orders.exceptions import (
     OrderNotFound,
     ProductNotFound,
 )
+from modules.orders.filters import OrderFilter
 from modules.orders.repositories.django_repository import OrderDjangoRepository
 from modules.orders.serializers import (
     CreateOrderSerializer,
@@ -39,7 +42,7 @@ from modules.orders.services import OrderService
 from modules.products.repositories.django_repository import ProductDjangoRepository
 
 
-class OrderViewSet(viewsets.ViewSet):
+class OrderViewSet(GenericViewSet):
     """ViewSet for Order operations.
 
     Uses ``OrderService`` with injected repositories (DIP).
@@ -47,9 +50,11 @@ class OrderViewSet(viewsets.ViewSet):
     the service/repository layer.
     """
 
-    ordering_fields = ["created_at", "id", "status"]
+    filterset_class = OrderFilter
+    search_fields = ["id", "customer__name"]
+    ordering_fields = ["created_at", "total_amount", "status"]
     ordering = ["-created_at", "-id"]
-    filter_backends = [OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -149,6 +154,7 @@ class OrderViewSet(viewsets.ViewSet):
             filters["created_at__lte"] = request.query_params["date_max"]
 
         orders = self._service.list_orders(filters or None)
+        orders = self.filter_queryset(orders)
         if request.query_params.get("ordering"):
             ordering_params = [
                 field.strip()

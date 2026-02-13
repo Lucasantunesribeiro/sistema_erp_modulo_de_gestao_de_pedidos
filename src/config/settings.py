@@ -146,7 +146,11 @@ REST_FRAMEWORK = {
     },
     "DEFAULT_PAGINATION_CLASS": "modules.core.pagination.StandardResultsSetPagination",
     "PAGE_SIZE": config("DEFAULT_PAGE_SIZE", default=20, cast=int),
-    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
