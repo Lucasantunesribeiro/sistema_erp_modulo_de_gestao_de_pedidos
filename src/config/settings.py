@@ -182,8 +182,8 @@ CSRF_TRUSTED_ORIGINS = config(
 # drf-spectacular (OpenAPI / Swagger)
 # ---------------------------------------------------------------------------
 SPECTACULAR_SETTINGS = {
-    "TITLE": "ERP Order Management API",
-    "DESCRIPTION": "REST API for order management with JWT authentication.",
+    "TITLE": "CorpSystem ERP API",
+    "DESCRIPTION": "API de gestão de pedidos, clientes e produtos.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SECURITY": [{"BearerAuth": []}],
