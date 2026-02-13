@@ -626,7 +626,8 @@ class TestOrderStatusHistoryCreation:
             old_status=OrderStatus.PENDING,
             new_status=OrderStatus.CONFIRMED,
         )
-        assert order.status_history.count() == 2
+        # 1 auto-created by signal on order creation + 2 manual = 3
+        assert order.status_history.count() == 3
 
 
 # ---------------------------------------------------------------------------
