@@ -45,7 +45,9 @@ class Command(BaseCommand):
             created += 1
         if not User.objects.filter(username="manager").exists():
             User.objects.create_user(
-                "manager", password="manager123", is_staff=True
+                "manager",
+                password="manager123",
+                is_staff=True,
             )
             created += 1
         if not User.objects.filter(username="user").exists():
@@ -61,7 +63,12 @@ class Command(BaseCommand):
             ("Bruno Lima", "11222333000181", DocumentType.CNPJ, "bruno@example.com"),
             ("Carla Mendes", "98765432100", DocumentType.CPF, "carla@example.com"),
             ("Daniel Costa", "12345678901", DocumentType.CPF, "daniel@example.com"),
-            ("Eduardo Alves", "98765432000155", DocumentType.CNPJ, "eduardo@example.com"),
+            (
+                "Eduardo Alves",
+                "98765432000155",
+                DocumentType.CNPJ,
+                "eduardo@example.com",
+            ),
             ("Fernanda Rocha", "74125896300", DocumentType.CPF, "fernanda@example.com"),
             ("Gabriel Santos", "36925814700", DocumentType.CPF, "gabriel@example.com"),
             ("Helena Ferreira", "25814736900", DocumentType.CPF, "helena@example.com"),
@@ -86,10 +93,10 @@ class Command(BaseCommand):
         self.stdout.write("Creating products...")
         products: list[Product] = []
         catalog = [
-            ("ELET-001", "Monitor 27\"", "Eletrônicos", Decimal("1299.90")),
+            ("ELET-001", 'Monitor 27"', "Eletrônicos", Decimal("1299.90")),
             ("ELET-002", "Teclado Mecânico", "Eletrônicos", Decimal("399.90")),
             ("ELET-003", "Mouse Gamer", "Eletrônicos", Decimal("249.90")),
-            ("ELET-004", "Notebook 14\"", "Eletrônicos", Decimal("3999.00")),
+            ("ELET-004", 'Notebook 14"', "Eletrônicos", Decimal("3999.00")),
             ("ELET-005", "Headset", "Eletrônicos", Decimal("299.90")),
             ("MOV-001", "Mesa Escritório", "Móveis", Decimal("899.00")),
             ("MOV-002", "Cadeira Ergonômica", "Móveis", Decimal("1499.00")),
@@ -122,12 +129,16 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Creating products... Done!"))
         return products
 
-    def _seed_orders(self, customers: Iterable[Customer], products: list[Product]) -> int:
+    def _seed_orders(
+        self, customers: Iterable[Customer], products: list[Product]
+    ) -> int:
         self.stdout.write("Creating orders...")
         orders_created = 0
         customers_list = list(customers)
         if not customers_list or not products:
-            self.stdout.write(self.style.WARNING("Skipping orders (no customers/products)."))
+            self.stdout.write(
+                self.style.WARNING("Skipping orders (no customers/products).")
+            )
             return 0
 
         status_weights = [
