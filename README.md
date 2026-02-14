@@ -89,7 +89,7 @@ Coverage baseline (Phase 1–7): **97.57%** (see `docs/PHASE_1_TO_7_AUDIT_REPORT
 ## Documentation
 - `ARCHITECTURE.md`
 - `docs/BUSINESS_RULES.md`
-- `docs/API_EXAMPLES.md` (to be created in Step 59)
+- `docs/API_EXAMPLES.md`
 
 ## Project Structure
 ```

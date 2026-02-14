@@ -68,6 +68,7 @@ dump.rdb
 !/docs/erDiagram.mmd
 !/docs/TASK_LIST.md
 !/docs/55_test_coverage_report.md
+!/docs/API_EXAMPLES.md
 CLAUDE.md
 
 .agent
