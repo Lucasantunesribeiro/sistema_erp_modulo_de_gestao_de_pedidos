@@ -79,8 +79,11 @@ jobs:
       - name: Run isort import check
         run: isort --check-only src/
 
+      - name: Run mypy
+        run: mypy --explicit-package-bases --config-file pyproject.toml src tests
+
       - name: Run tests with coverage
-        run: pytest --cov=src
+        run: pytest --cov=src --cov-report=term-missing --cov-fail-under=97
 
   build:
     runs-on: ubuntu-latest

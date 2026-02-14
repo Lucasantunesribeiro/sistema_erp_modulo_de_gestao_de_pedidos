@@ -118,5 +118,16 @@ Coverage baseline (Phase 1–7): **97.57%** (see `docs/PHASE_1_TO_7_AUDIT_REPORT
 - Submit PRs with focused scope and tests.
 - Commit style: **Conventional Commits** (imperative, <= 72 chars).
 
+## Release / Deploy Prep
+Before pushing to `main`, run the local CI script:
+
+```bash
+# Linux/Mac
+./scripts/check_quality.sh
+
+# Windows
+scripts\check_quality.bat
+```
+
 ## License
 MIT
