@@ -11,12 +11,18 @@ CorpSystem ERP is a **high-performance Order Management module** designed for st
 traceability, and clean extensibility. The backend follows **Modular Monolith** principles with **DDD
 and Clean Architecture**, enabling clear boundaries while keeping transactional integrity.
 
-**Tech Stack:** Python, Django REST Framework, Celery, Redis, MySQL, Docker.
+## Technologies Used
+- Python 3.12+
+- Django 5.0+
+- Django REST Framework
+- Celery
+- Redis
+- MySQL 8.0
+- Docker + Docker Compose
 
-## Architecture
-This project follows **Modular Monolith** boundaries with **DDD** and **Clean Architecture**
-principles. Services depend on repository interfaces (DIP) and cross-module access is done
-via public service contracts or domain events.
+## Architectural Decisions
+Key decisions are documented in `ARCHITECTURE.md`, including Modular Monolith rules, data flow,
+and trade-offs.
 
 ## Quick Start (Docker - Development)
 **Prerequisites:** Docker 24+ and Docker Compose 2.20+.

@@ -1,7 +1,7 @@
 # CorpSystem ERP – Architecture
 
 ## 1. Overview
-**Problem Domain:** Corporate ERP order management with strict consistency and traceability.
+**Problem Domain:** Corporate ERP order management with strong consistency and traceability.
 
 **Quality Attributes:**
 - **Consistency:** ACID transactions for stock and order state.
@@ -9,80 +9,49 @@
 - **Extensibility:** Modular Monolith boundaries + Service Layer.
 - **Performance:** Optimized queries and bounded N+1.
 
-## 2. C4 Model (Mermaid)
+## 2. Architectural Patterns Adopted
+- **Modular Monolith:** Clear module boundaries inside a single deployable unit.
+- **DDD + Clean Architecture:** Domain rules isolated in services and entities.
+- **Repository Pattern:** Services depend on interfaces, not ORM.
+- **Service Layer:** Business logic centralized, views only handle HTTP.
+- **DTOs (Pydantic):** Typed contracts between API and services.
+- **Outbox Pattern:** Reliable event publishing.
+- **Idempotency (Redis):** Prevents duplicate order creation.
 
-### 2.1 C4 – Context Diagram
-```mermaid
-flowchart LR
-  User[Business User] -->|Uses| ERP[CorpSystem ERP API]
-  ERP -->|Future| Pay[Payment Gateway]
-  ERP -->|Future| NFe[Nota Fiscal Service]
-```
+## 3. Data Flow
+### 3.1 Order Creation (sync critical path)
+1. API validates payload and builds DTO.
+2. Service checks customer and product status.
+3. Service locks stock (`SELECT FOR UPDATE`).
+4. Order + items persisted atomically.
+5. Status history recorded + domain events queued.
 
-### 2.2 C4 – Container Diagram
-```mermaid
-flowchart LR
-  Client[API Clients] -->|HTTPS/JSON| API[Django REST API]
-  API -->|Async tasks| Worker[Celery Workers]
-  API -->|Read/Write| DB[(MySQL 8.0)]
-  API -->|Cache/Idempotency| Redis[(Redis 7)]
-  Worker -->|Read/Write| DB
-  Worker -->|Cache| Redis
-```
+### 3.2 Order Listing
+1. API applies filters/pagination.
+2. Repository returns optimized queryset.
+3. Serializer returns lightweight payload.
 
-### 2.3 Module Dependency Diagram
-```mermaid
-flowchart TD
-  Core[core] --> Customers[customers]
-  Core[core] --> Products[products]
-  Core[core] --> Orders[orders]
-  Orders -->|Interfaces| Customers
-  Orders -->|Interfaces| Products
-```
+### 3.3 Order Cancellation
+1. Service locks order and items.
+2. Stock is released atomically.
+3. Status history recorded.
 
-## 3. Architectural Decisions (ADR Summary)
-
-### 3.1 Modular Monolith
-**Why not microservices now?** The current team size and scope favor low operational complexity and
-strong consistency. The Modular Monolith provides clear boundaries while maintaining in-process
-communication and ACID guarantees. See `docs/ADR-001-Architecture-Modular-Monolith.md`.
-
-### 3.2 Sync vs Async
-- **Sync:** Reads and stock reservation for orders (critical consistency).
-- **Async:** Notifications, integrations, and background processing via Celery.
-
-### 3.3 Database Strategy
-- **Single MySQL database** with logical separation by module (table prefixes and strict FK usage).
-- **Transactional boundaries** enforced at the Service Layer using atomic operations.
-
-## 4. Implemented Patterns
-- **Repository Pattern:** ORM isolation for clean dependency inversion.
-- **Service Layer:** Business rules live outside views and serializers.
-- **DTOs:** Typed data contracts using Pydantic.
-- **Outbox Pattern:** Reliable domain event publishing.
-- **Idempotency:** Redis-backed keys to prevent duplicate order creation.
+## 4. Technical Decisions & Trade-offs
+- **MySQL 8.0:** Required by the test; ACID support. Trade-off: fewer advanced features vs PostgreSQL.
+- **Redis for cache/idempotency:** High-performance atomic ops. Trade-off: extra infra component.
+- **Celery for async:** Mature async processing. Trade-off: extra operational complexity.
+- **JWT auth (SimpleJWT):** Standard stateless auth. Trade-off: token management on clients.
 
 ## 5. Development Guide
-
-### 5.1 Where to place new logic
-- **Service:** Business rules, orchestration, transactions.
-- **Model:** Data validation and invariants.
-- **View:** HTTP concerns only (serialization, status codes).
-
-### 5.2 Creating a new module
-1. Create module folder under `src/modules/<module>`.
-2. Add `apps.py`, `models.py`, `repositories/`, `services.py`, `views.py`, `serializers.py`.
-3. Register module in `INSTALLED_APPS` and `config/urls.py`.
-
-### 5.3 Dependency Rules
-- `core` does not depend on other modules.
-- Business modules depend only on `core` and interfaces, never concrete repositories.
-- Cross-module reads use public services/interfaces, not direct model imports.
+- **Service vs Model vs View:**
+  - Service: orchestration + business rules.
+  - Model: validation and invariants.
+  - View: HTTP and serialization only.
 
 ## 6. Folder Map
-- `src/config/`: Django settings, URL config, Celery app.
-- `src/modules/core/`: Base models, shared middleware, pagination, interfaces.
+- `src/config/`: Django settings, URLs, Celery app.
+- `src/modules/core/`: base models, middleware, pagination.
 - `src/modules/customers/`: Customer domain.
-- `src/modules/products/`: Product catalog + stock.
-- `src/modules/orders/`: Order aggregate, state machine, history.
+- `src/modules/products/`: Product domain.
+- `src/modules/orders/`: Order aggregate.
 - `tests/`: Unit + integration tests.
