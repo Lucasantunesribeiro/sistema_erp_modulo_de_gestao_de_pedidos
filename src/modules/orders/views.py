@@ -231,6 +231,58 @@ class OrderViewSet(GenericViewSet):
         serializer = OrderSerializer(order)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["patch"], url_path="status")
+    def update_status(self, request: Request, pk: str | None = None) -> Response:
+        """PATCH /api/v1/orders/{pk}/status/
+
+        Dedicated sub-resource for status updates.
+        """
+        if pk is None:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        status_value = request.data.get("status")
+        if not status_value:
+            return Response(
+                {"detail": "Field 'status' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if status_value.upper() == OrderStatus.CANCELLED:
+            return Response(
+                {"detail": "Use the /cancel/ endpoint for cancellations."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        notes = request.data.get("notes", "")
+
+        try:
+            order = self._service.update_status(
+                order_id=UUID(pk),
+                new_status=status_value,
+                notes=notes,
+            )
+        except OrderNotFound:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except InvalidOrderStatus as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError:
+            return Response(
+                {"detail": "Invalid order ID format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
     # ------------------------------------------------------------------
     # Cancel (dedicated action)
     # ------------------------------------------------------------------
@@ -248,6 +300,47 @@ class OrderViewSet(GenericViewSet):
             )
 
         notes = request.data.get("notes", "")
+
+        try:
+            order = self._service.cancel_order(
+                order_id=UUID(pk),
+                notes=notes,
+            )
+        except OrderNotFound:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except InvalidOrderStatus as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError:
+            return Response(
+                {"detail": "Invalid order ID format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    # ------------------------------------------------------------------
+    # Destroy (cancel via DELETE)
+    # ------------------------------------------------------------------
+
+    def destroy(self, request: Request, pk: str | None = None) -> Response:
+        """DELETE /api/v1/orders/{pk}/
+
+        Cancels the order (same semantics as POST /cancel/).
+        """
+        if pk is None:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        notes = request.data.get("notes", "") if request.data else ""
 
         try:
             order = self._service.cancel_order(

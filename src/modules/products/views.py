@@ -10,6 +10,7 @@ from __future__ import annotations
 from django_filters.rest_framework import DjangoFilterBackend
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.mixins import ListModelMixin
 from rest_framework.request import Request
@@ -144,6 +145,43 @@ class ProductViewSet(ListModelMixin, GenericViewSet):
     def partial_update(self, request: Request, pk: str | None = None) -> Response:
         """PATCH /api/v1/products/{pk}/"""
         return self.update(request, pk)
+
+    @action(detail=True, methods=["patch"], url_path="stock")
+    def update_stock(self, request: Request, pk: str | None = None) -> Response:
+        """PATCH /api/v1/products/{pk}/stock/
+
+        Accepts ``{"stock_quantity": N}`` or ``{"quantity": N}``.
+        """
+        value = request.data.get("stock_quantity") or request.data.get("quantity")
+        if value is None:
+            return Response(
+                {"detail": "Field 'stock_quantity' or 'quantity' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            dto = UpdateProductDTO(stock_quantity=int(value))
+        except (PydanticValidationError, ValueError) as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if pk is None:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        try:
+            product = self._service.update_product(pk, dto)
+        except ProductNotFound:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        out = ProductSerializer(product)
+        return Response(out.data)
 
     def destroy(self, request: Request, pk: str | None = None) -> Response:
         """DELETE /api/v1/products/{pk}/"""

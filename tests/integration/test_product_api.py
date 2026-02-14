@@ -188,6 +188,47 @@ class TestProductUpdate:
 
 
 # ===========================================================================
+# STOCK SUB-RESOURCE
+# ===========================================================================
+
+
+class TestProductStockUpdate:
+    def test_update_stock_success(self, auth_client, sample_product):
+        response = auth_client.patch(
+            f"/api/v1/products/{sample_product.id}/stock/",
+            {"stock_quantity": 200},
+            format="json",
+        )
+        assert response.status_code == 200
+        assert response.data["stock_quantity"] == 200
+
+    def test_update_stock_with_quantity_alias(self, auth_client, sample_product):
+        response = auth_client.patch(
+            f"/api/v1/products/{sample_product.id}/stock/",
+            {"quantity": 150},
+            format="json",
+        )
+        assert response.status_code == 200
+        assert response.data["stock_quantity"] == 150
+
+    def test_update_stock_missing_field_returns_400(self, auth_client, sample_product):
+        response = auth_client.patch(
+            f"/api/v1/products/{sample_product.id}/stock/",
+            {},
+            format="json",
+        )
+        assert response.status_code == 400
+
+    def test_update_stock_not_found_returns_404(self, auth_client):
+        response = auth_client.patch(
+            "/api/v1/products/00000000-0000-0000-0000-000000000000/stock/",
+            {"stock_quantity": 10},
+            format="json",
+        )
+        assert response.status_code == 404
+
+
+# ===========================================================================
 # DESTROY
 # ===========================================================================
 

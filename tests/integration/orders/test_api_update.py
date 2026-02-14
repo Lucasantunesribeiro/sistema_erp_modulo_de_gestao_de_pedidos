@@ -329,6 +329,105 @@ class TestCancelActionValidation:
 
 
 # ===========================================================================
+# DELETE — Cancel via destroy
+# ===========================================================================
+
+
+class TestDeleteCancelOrder:
+    def test_delete_cancels_order(self, auth_client, created_order):
+        order_id = created_order["id"]
+        response = auth_client.delete(f"/api/v1/orders/{order_id}/")
+        assert response.status_code == 200
+        assert response.data["status"] == OrderStatus.CANCELLED
+
+    def test_delete_releases_stock(self, auth_client, created_order, product):
+        order_id = created_order["id"]
+        product.refresh_from_db()
+        assert product.stock_quantity == 95
+
+        auth_client.delete(f"/api/v1/orders/{order_id}/")
+
+        product.refresh_from_db()
+        assert product.stock_quantity == 100
+
+    def test_delete_non_cancellable_returns_400(self, auth_client, created_order):
+        order_id = created_order["id"]
+        for next_status in [
+            OrderStatus.CONFIRMED,
+            OrderStatus.SEPARATED,
+            OrderStatus.SHIPPED,
+        ]:
+            auth_client.patch(
+                f"/api/v1/orders/{order_id}/",
+                {"status": next_status},
+                format="json",
+            )
+        response = auth_client.delete(f"/api/v1/orders/{order_id}/")
+        assert response.status_code == 400
+
+    def test_delete_not_found_returns_404(self, auth_client):
+        response = auth_client.delete(
+            "/api/v1/orders/00000000-0000-0000-0000-000000000000/"
+        )
+        assert response.status_code == 404
+
+
+# ===========================================================================
+# PATCH — Status Sub-resource
+# ===========================================================================
+
+
+class TestPatchStatusSubresource:
+    def test_patch_status_success(self, auth_client, created_order):
+        order_id = created_order["id"]
+        response = auth_client.patch(
+            f"/api/v1/orders/{order_id}/status/",
+            {"status": OrderStatus.CONFIRMED},
+            format="json",
+        )
+        assert response.status_code == 200
+        assert response.data["status"] == OrderStatus.CONFIRMED
+
+    def test_patch_status_missing_field_returns_400(self, auth_client, created_order):
+        order_id = created_order["id"]
+        response = auth_client.patch(
+            f"/api/v1/orders/{order_id}/status/",
+            {"notes": "no status"},
+            format="json",
+        )
+        assert response.status_code == 400
+
+    def test_patch_status_cancel_blocked_returns_400(self, auth_client, created_order):
+        order_id = created_order["id"]
+        response = auth_client.patch(
+            f"/api/v1/orders/{order_id}/status/",
+            {"status": OrderStatus.CANCELLED},
+            format="json",
+        )
+        assert response.status_code == 400
+        assert "/cancel/" in response.data["detail"]
+
+    def test_patch_status_invalid_transition_returns_400(
+        self, auth_client, created_order
+    ):
+        order_id = created_order["id"]
+        response = auth_client.patch(
+            f"/api/v1/orders/{order_id}/status/",
+            {"status": OrderStatus.SHIPPED},
+            format="json",
+        )
+        assert response.status_code == 400
+
+    def test_patch_status_not_found_returns_404(self, auth_client):
+        response = auth_client.patch(
+            "/api/v1/orders/00000000-0000-0000-0000-000000000000/status/",
+            {"status": OrderStatus.CONFIRMED},
+            format="json",
+        )
+        assert response.status_code == 404
+
+
+# ===========================================================================
 # Authentication
 # ===========================================================================
 
