@@ -36,13 +36,15 @@ class Customer(SoftDeleteModel):
     never be reused.  Use ``restore()`` to reactivate a soft-deleted customer.
     """
 
-    name = models.CharField(max_length=255)
-    document = models.CharField(max_length=14, unique=True)
-    document_type = models.CharField(max_length=4, choices=DocumentType.choices)
-    email = models.EmailField(max_length=254, unique=True)
-    phone = models.CharField(max_length=20, blank=True, default="")
-    address = models.TextField(blank=True, default="")
-    is_active = models.BooleanField(default=True)
+    name: models.CharField = models.CharField(max_length=255)
+    document: models.CharField = models.CharField(max_length=14, unique=True)
+    document_type: models.CharField = models.CharField(
+        max_length=4, choices=DocumentType.choices
+    )
+    email: models.EmailField = models.EmailField(max_length=254, unique=True)
+    phone: models.CharField = models.CharField(max_length=20, blank=True, default="")
+    address: models.TextField = models.TextField(blank=True, default="")
+    is_active: models.BooleanField = models.BooleanField(default=True)
 
     class Meta:
         db_table = "customers"

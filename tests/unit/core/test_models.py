@@ -24,7 +24,7 @@ pytestmark = pytest.mark.unit
 
 
 class ConcreteBaseModel(BaseModel):
-    name = models.CharField(max_length=100)
+    name: models.CharField = models.CharField(max_length=100)
 
     class Meta(BaseModel.Meta):
         app_label = "core"
@@ -32,7 +32,7 @@ class ConcreteBaseModel(BaseModel):
 
 
 class ConcreteSoftDeleteModel(SoftDeleteModel):
-    title = models.CharField(max_length=100)
+    title: models.CharField = models.CharField(max_length=100)
 
     class Meta(SoftDeleteModel.Meta):
         app_label = "core"

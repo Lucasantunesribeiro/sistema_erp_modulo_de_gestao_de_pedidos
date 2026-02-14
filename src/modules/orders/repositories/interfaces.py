@@ -11,7 +11,9 @@ The concrete Django ORM implementation will be provided in Stage 27.
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from django.db import models
 from uuid import UUID
 
 from modules.core.repositories.interfaces import IRepository
@@ -46,7 +48,9 @@ class IOrderRepository(IRepository["Order"]):
         """Retrieve an order with prefetched items and status history."""
 
     @abstractmethod
-    def list(self, filters: Optional[Dict[str, Any]] = None) -> List[Order]:
+    def list(
+        self, filters: Optional[Dict[str, Any]] = None
+    ) -> "models.QuerySet[Order]":
         """List orders with optional filters."""
 
     @abstractmethod

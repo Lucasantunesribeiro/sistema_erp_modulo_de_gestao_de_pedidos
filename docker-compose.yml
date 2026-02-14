@@ -9,6 +9,7 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./setup.cfg:/app/setup.cfg
+      - ./pyproject.toml:/app/pyproject.toml
       - ./pytest.ini:/app/pytest.ini
     env_file:
       - .env

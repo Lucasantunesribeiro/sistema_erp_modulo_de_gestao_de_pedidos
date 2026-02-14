@@ -15,7 +15,7 @@ Business rules enforced:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID
 
 import structlog
@@ -120,7 +120,6 @@ class OrderService:
             )
             if product is None:
                 raise ProductNotFound(f"Product {item_dto.product_id} not found.")
-            product = cast(Product, product)
             if product.status != "active":
                 raise InactiveProduct(f"Product {item_dto.product_id} is inactive.")
             if product.stock_quantity < item_dto.quantity:
@@ -205,13 +204,16 @@ class OrderService:
 
         old_status = order.status
         order.status = new_status
-        order._status_change_notes = notes
+        order._status_change_notes = notes  # type: ignore[attr-defined]
         order.add_domain_event(OrderStatusChanged(aggregate_id=order.id))
         self._order_repo.save(order)
 
         log.info("order.status_updated")
         self._dispatch_status_event(order, old_status, new_status)
-        return self._order_repo.get_by_id(str(order_id))
+        updated = self._order_repo.get_by_id(str(order_id))
+        if updated is None:
+            raise OrderNotFound(f"Order {order_id} not found.")
+        return updated
 
     @transaction.atomic
     def cancel_order(self, order_id: UUID, notes: str = "") -> Order:
@@ -245,7 +247,6 @@ class OrderService:
                 Product.objects.select_for_update().filter(id=item.product_id).first()
             )
             if product is not None:
-                product = cast(Product, product)
                 product.stock_quantity += item.quantity
                 product.save(update_fields=["stock_quantity", "updated_at"])
                 log.info(
@@ -257,13 +258,16 @@ class OrderService:
 
         # 4. Update status on the already-locked row
         order.status = OrderStatus.CANCELLED
-        order._status_change_notes = notes or "Order cancelled"
+        order._status_change_notes = notes or "Order cancelled"  # type: ignore[attr-defined]
         order.add_domain_event(OrderCancelled(aggregate_id=order.id))
         self._order_repo.save(order)
 
         log.info("order.cancelled")
         self._on_order_cancelled(order)
-        return self._order_repo.get_by_id(str(order_id))
+        updated = self._order_repo.get_by_id(str(order_id))
+        if updated is None:
+            raise OrderNotFound(f"Order {order_id} not found.")
+        return updated
 
     # ------------------------------------------------------------------
     # Queries

@@ -8,9 +8,16 @@ depends on this abstraction, never on Django ORM directly.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, Optional, Protocol, TypeVar
+
+from django.db import models
 
 T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Queryable(Protocol[T_co]):
+    def filter(self, **kwargs: Any) -> models.QuerySet: ...
 
 
 class IRepository(ABC, Generic[T]):
@@ -25,7 +32,9 @@ class IRepository(ABC, Generic[T]):
         """Retrieve an entity by its primary key."""
 
     @abstractmethod
-    def list(self, filters: Optional[Dict[str, Any]] = None) -> List[T]:
+    def list(
+        self, filters: Optional[Dict[str, Any]] = None
+    ) -> Queryable[T]:
         """List entities with optional filters."""
 
     @abstractmethod

@@ -6,7 +6,7 @@ from typing import Generic, Protocol, Type, TypeVar
 
 from shared.domain.events import DomainEvent
 
-E = TypeVar("E", bound=DomainEvent)
+E = TypeVar("E", bound=DomainEvent, contravariant=True)
 
 
 class IEventHandler(Protocol, Generic[E]):

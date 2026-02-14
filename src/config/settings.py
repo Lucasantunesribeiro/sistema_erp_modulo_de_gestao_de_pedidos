@@ -229,7 +229,7 @@ def mask_sensitive_data(_, __, event_dict):
 
 
 # Shared processors used by both structlog and stdlib logging
-_shared_processors = [
+_shared_processors: list = [
     structlog.contextvars.merge_contextvars,
     structlog.stdlib.add_log_level,
     structlog.stdlib.add_logger_name,

@@ -11,20 +11,21 @@ from django_filters.rest_framework import DjangoFilterBackend
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.mixins import ListModelMixin
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
-from modules.core.pagination import StandardResultsSetPagination
 from modules.products.dtos import CreateProductDTO, UpdateProductDTO
 from modules.products.exceptions import ProductAlreadyExists, ProductNotFound
 from modules.products.filters import ProductFilter
+from modules.products.models import Product
 from modules.products.repositories.django_repository import ProductDjangoRepository
 from modules.products.serializers import ProductSerializer
 from modules.products.services import ProductService
 
 
-class ProductViewSet(GenericViewSet):
+class ProductViewSet(ListModelMixin, GenericViewSet):
     """ViewSet for Product CRUD operations.
 
     Uses ``ProductService`` with ``ProductDjangoRepository`` (DIP).
@@ -37,6 +38,8 @@ class ProductViewSet(GenericViewSet):
     ordering_fields = ["name", "price", "stock_quantity"]
     ordering = ["-created_at", "-id"]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -46,27 +49,16 @@ class ProductViewSet(GenericViewSet):
     # List / Retrieve
     # ------------------------------------------------------------------
 
-    def list(self, request: Request) -> Response:
-        """GET /api/v1/products/"""
-        products = self._service.list_products()
-        products = self.filter_queryset(products)
-        if request.query_params.get("ordering"):
-            ordering_params = [
-                field.strip()
-                for field in request.query_params.get("ordering", "").split(",")
-                if field.strip()
-            ]
-            if ordering_params:
-                products = products.order_by(*ordering_params)
-        else:
-            products = products.order_by(*self.ordering)
-        paginator = StandardResultsSetPagination()
-        page = paginator.paginate_queryset(products, request)
-        serializer = ProductSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+    def get_queryset(self):
+        return self._service.list_products()
 
-    def retrieve(self, request: Request, pk: str = None) -> Response:
+    def retrieve(self, request: Request, pk: str | None = None) -> Response:
         """GET /api/v1/products/{pk}/"""
+        if pk is None:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             product = self._service.get_product(pk)
         except ProductNotFound:
@@ -110,7 +102,7 @@ class ProductViewSet(GenericViewSet):
         out = ProductSerializer(product)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
-    def update(self, request: Request, pk: str = None) -> Response:
+    def update(self, request: Request, pk: str | None = None) -> Response:
         """PUT/PATCH /api/v1/products/{pk}/"""
         data = request.data
 
@@ -128,6 +120,11 @@ class ProductViewSet(GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if pk is None:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             product = self._service.update_product(pk, dto)
         except ProductNotFound:
@@ -144,12 +141,17 @@ class ProductViewSet(GenericViewSet):
         out = ProductSerializer(product)
         return Response(out.data)
 
-    def partial_update(self, request: Request, pk: str = None) -> Response:
+    def partial_update(self, request: Request, pk: str | None = None) -> Response:
         """PATCH /api/v1/products/{pk}/"""
         return self.update(request, pk)
 
-    def destroy(self, request: Request, pk: str = None) -> Response:
+    def destroy(self, request: Request, pk: str | None = None) -> Response:
         """DELETE /api/v1/products/{pk}/"""
+        if pk is None:
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             self._service.delete_product(pk)
         except ProductNotFound:

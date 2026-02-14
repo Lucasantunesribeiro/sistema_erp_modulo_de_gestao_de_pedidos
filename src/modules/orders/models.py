@@ -241,7 +241,7 @@ class OrderStatusHistory(BaseModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-    )
+    )  # type: ignore[misc]
     notes: models.TextField = models.TextField(blank=True, default="")
 
     class Meta:

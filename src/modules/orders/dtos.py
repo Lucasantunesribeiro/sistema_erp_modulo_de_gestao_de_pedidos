@@ -149,8 +149,8 @@ class OrderOutputDTO(BaseModel):
             OrderItemOutputDTO(
                 id=item.id,
                 product_id=item.product_id,
-                product_name=item.product.name,
-                product_sku=item.product.sku,
+                product_name=item.product.name,  # type: ignore[attr-defined]
+                product_sku=item.product.sku,  # type: ignore[attr-defined]
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 subtotal=item.subtotal,

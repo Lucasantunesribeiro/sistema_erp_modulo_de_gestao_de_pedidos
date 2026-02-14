@@ -11,20 +11,21 @@ from django_filters.rest_framework import DjangoFilterBackend
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.mixins import ListModelMixin
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
-from modules.core.pagination import StandardResultsSetPagination
 from modules.customers.dtos import CreateCustomerDTO, UpdateCustomerDTO
 from modules.customers.exceptions import CustomerAlreadyExists, CustomerNotFound
 from modules.customers.filters import CustomerFilter
+from modules.customers.models import Customer
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
 from modules.customers.serializers import CustomerSerializer
 from modules.customers.services import CustomerService
 
 
-class CustomerViewSet(GenericViewSet):
+class CustomerViewSet(ListModelMixin, GenericViewSet):
     """ViewSet for Customer CRUD operations.
 
     Uses ``CustomerService`` with ``CustomerDjangoRepository`` (DIP).
@@ -37,6 +38,8 @@ class CustomerViewSet(GenericViewSet):
     ordering_fields = ["name", "created_at"]
     ordering = ["-created_at", "-id"]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -46,27 +49,16 @@ class CustomerViewSet(GenericViewSet):
     # List / Retrieve
     # ------------------------------------------------------------------
 
-    def list(self, request: Request) -> Response:
-        """GET /api/v1/customers/"""
-        customers = self._service.list_customers()
-        customers = self.filter_queryset(customers)
-        if request.query_params.get("ordering"):
-            ordering_params = [
-                field.strip()
-                for field in request.query_params.get("ordering", "").split(",")
-                if field.strip()
-            ]
-            if ordering_params:
-                customers = customers.order_by(*ordering_params)
-        else:
-            customers = customers.order_by(*self.ordering)
-        paginator = StandardResultsSetPagination()
-        page = paginator.paginate_queryset(customers, request)
-        serializer = CustomerSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+    def get_queryset(self):
+        return CustomerDjangoRepository().list()
 
-    def retrieve(self, request: Request, pk: str = None) -> Response:
+    def retrieve(self, request: Request, pk: str | None = None) -> Response:
         """GET /api/v1/customers/{pk}/"""
+        if pk is None:
+            return Response(
+                {"detail": "Customer not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             customer = self._service.get_customer(pk)
         except CustomerNotFound:
@@ -111,7 +103,7 @@ class CustomerViewSet(GenericViewSet):
         out = CustomerSerializer(customer)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
-    def update(self, request: Request, pk: str = None) -> Response:
+    def update(self, request: Request, pk: str | None = None) -> Response:
         """PUT/PATCH /api/v1/customers/{pk}/"""
         data = request.data
 
@@ -123,6 +115,11 @@ class CustomerViewSet(GenericViewSet):
             is_active=data.get("is_active"),
         )
 
+        if pk is None:
+            return Response(
+                {"detail": "Customer not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             customer = self._service.update_customer(pk, dto)
         except CustomerNotFound:
@@ -139,12 +136,17 @@ class CustomerViewSet(GenericViewSet):
         out = CustomerSerializer(customer)
         return Response(out.data)
 
-    def partial_update(self, request: Request, pk: str = None) -> Response:
+    def partial_update(self, request: Request, pk: str | None = None) -> Response:
         """PATCH /api/v1/customers/{pk}/"""
         return self.update(request, pk)
 
-    def destroy(self, request: Request, pk: str = None) -> Response:
+    def destroy(self, request: Request, pk: str | None = None) -> Response:
         """DELETE /api/v1/customers/{pk}/"""
+        if pk is None:
+            return Response(
+                {"detail": "Customer not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             self._service.delete_customer(pk)
         except CustomerNotFound:

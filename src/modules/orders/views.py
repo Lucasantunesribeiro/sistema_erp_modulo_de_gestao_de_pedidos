@@ -22,6 +22,7 @@ from modules.core.pagination import StandardResultsSetPagination
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
 from modules.orders.constants import OrderStatus
 from modules.orders.dtos import CreateOrderDTO, CreateOrderItemDTO
+from modules.orders.models import Order
 from modules.orders.exceptions import (
     CustomerNotFound,
     InactiveCustomer,
@@ -43,6 +44,7 @@ from modules.products.repositories.django_repository import ProductDjangoReposit
 
 
 class OrderViewSet(GenericViewSet):
+    queryset = Order.objects.all()
     """ViewSet for Order operations.
 
     Uses ``OrderService`` with injected repositories (DIP).
@@ -66,12 +68,14 @@ class OrderViewSet(GenericViewSet):
 
     def get_throttles(self) -> list[BaseThrottle]:
         """Define escopos de throttling por ação."""
+        throttle_scope: str | None
         if self.action == "create":
-            self.throttle_scope = "order_creation"
+            throttle_scope = "order_creation"
         elif self.action in {"list", "retrieve"}:
-            self.throttle_scope = "order_listing"
+            throttle_scope = "order_listing"
         else:
-            self.throttle_scope = None
+            throttle_scope = None
+        self.throttle_scope = throttle_scope
         return super().get_throttles()
 
     # ------------------------------------------------------------------
@@ -84,10 +88,10 @@ class OrderViewSet(GenericViewSet):
         Supports idempotency via the ``Idempotency-Key`` header.
         Returns 200 if the key was already used, 201 for new orders.
         """
-        serializer = CreateOrderSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        create_serializer = CreateOrderSerializer(data=request.data)
+        create_serializer.is_valid(raise_exception=True)
 
-        data = serializer.validated_data
+        data = create_serializer.validated_data
         idempotency_key = request.headers.get("Idempotency-Key")
         dto = CreateOrderDTO(
             customer_id=data["customer_id"],
@@ -137,24 +141,32 @@ class OrderViewSet(GenericViewSet):
     # List / Retrieve
     # ------------------------------------------------------------------
 
+    def get_queryset(self):
+        return OrderDjangoRepository().list()
+
     def list(self, request: Request) -> Response:
         """GET /api/v1/orders/
 
         Supports filters: ``status``, ``customer_id``, ``date_min``,
         ``date_max``.  Results are paginated (default page size 20).
         """
-        filters = {}
+        queryset = self.get_queryset()
         if request.query_params.get("status"):
-            filters["status"] = request.query_params["status"]
+            queryset = queryset.filter(status=request.query_params["status"])
         if request.query_params.get("customer_id"):
-            filters["customer_id"] = request.query_params["customer_id"]
+            queryset = queryset.filter(
+                customer_id=request.query_params["customer_id"]
+            )
         if request.query_params.get("date_min"):
-            filters["created_at__gte"] = request.query_params["date_min"]
+            queryset = queryset.filter(
+                created_at__gte=request.query_params["date_min"]
+            )
         if request.query_params.get("date_max"):
-            filters["created_at__lte"] = request.query_params["date_max"]
+            queryset = queryset.filter(
+                created_at__lte=request.query_params["date_max"]
+            )
 
-        orders = self._service.list_orders(filters or None)
-        orders = self.filter_queryset(orders)
+        queryset = self.filter_queryset(queryset)
         if request.query_params.get("ordering"):
             ordering_params = [
                 field.strip()
@@ -162,21 +174,22 @@ class OrderViewSet(GenericViewSet):
                 if field.strip()
             ]
             if ordering_params:
-                orders = orders.order_by(*ordering_params)
+                queryset = queryset.order_by(*ordering_params)
         else:
-            orders = orders.order_by(*self.ordering)
+            queryset = queryset.order_by(*self.ordering)
 
         paginator = StandardResultsSetPagination()
-        page = paginator.paginate_queryset(orders, request)
-        if page is not None:
-            serializer = OrderListSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = OrderListSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
-        serializer = OrderListSerializer(orders, many=True)
-        return Response(serializer.data)
-
-    def retrieve(self, request: Request, pk: str = None) -> Response:
+    def retrieve(self, request: Request, pk: str | None = None) -> Response:
         """GET /api/v1/orders/{pk}/"""
+        if pk is None:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             order = self._service.get_order(pk)
         except OrderNotFound:
@@ -191,20 +204,26 @@ class OrderViewSet(GenericViewSet):
     # Status Update
     # ------------------------------------------------------------------
 
-    def partial_update(self, request: Request, pk: str = None) -> Response:
+    def partial_update(self, request: Request, pk: str | None = None) -> Response:
         """PATCH /api/v1/orders/{pk}/
 
         Updates order status.  Cancellations are **not** allowed via
         this endpoint — use ``POST /orders/{id}/cancel/`` instead.
         """
-        new_status = request.data.get("status")
-        if not new_status:
+        if pk is None:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        status_value = request.data.get("status")
+        if not status_value:
             return Response(
                 {"detail": "Field 'status' is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if new_status.upper() == OrderStatus.CANCELLED:
+        if status_value.upper() == OrderStatus.CANCELLED:
             return Response(
                 {"detail": "Use the /cancel/ endpoint for cancellations."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -215,7 +234,7 @@ class OrderViewSet(GenericViewSet):
         try:
             order = self._service.update_status(
                 order_id=UUID(pk),
-                new_status=new_status,
+                new_status=status_value,
                 notes=notes,
             )
         except OrderNotFound:
@@ -242,11 +261,17 @@ class OrderViewSet(GenericViewSet):
     # ------------------------------------------------------------------
 
     @action(detail=True, methods=["post"])
-    def cancel(self, request: Request, pk: str = None) -> Response:
+    def cancel(self, request: Request, pk: str | None = None) -> Response:
         """POST /api/v1/orders/{pk}/cancel/
 
         Cancels an order and releases reserved stock (RN-EST-005/006).
         """
+        if pk is None:
+            return Response(
+                {"detail": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         notes = request.data.get("notes", "")
 
         try:

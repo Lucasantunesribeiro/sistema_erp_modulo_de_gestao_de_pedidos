@@ -7,7 +7,9 @@ business rules RN-PRO-001 (unique SKU) and stock verification.
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from django.db import models
 
 from modules.core.repositories.interfaces import IRepository
 
@@ -17,6 +19,12 @@ if TYPE_CHECKING:
 
 class IProductRepository(IRepository["Product"]):
     """Repository contract for the Product aggregate."""
+
+    @abstractmethod
+    def list(
+        self, filters: Optional[Dict[str, Any]] = None
+    ) -> "models.QuerySet[Product]":
+        """List products with optional filters."""
 
     @abstractmethod
     def get_by_sku(self, sku: str) -> Optional[Product]:
