@@ -27,13 +27,18 @@ and trade-offs.
 ## Quick Start (Docker - Development)
 **Prerequisites:** Docker 24+ and Docker Compose 2.20+.
 
+Environment files:
+- `.env.dev.example` (development)
+- `.env.staging.example` (staging)
+- `.env.prod.example` (production)
+
 ```bash
 # 1) Clone
 git clone https://github.com/Lucasantunesribeiro/sistema_erp_modulo_de_gestao_de_pedidos.git
 cd sistema_erp_modulo_de_gestao_de_pedidos
 
 # 2) Environment
-cp .env.example .env
+cp .env.dev.example .env
 
 # 3) Start services
 docker compose up -d --build
@@ -58,7 +63,7 @@ Health check:
 ## Manual Setup (No Docker)
 1. Create and activate a virtualenv.
 2. Install dependencies.
-3. Configure `.env` (see `.env.example`).
+3. Configure `.env` (see `.env.dev.example`, `.env.staging.example`, `.env.prod.example`).
 4. Ensure MySQL 8.0 and Redis 7 are running locally.
 
 ```bash
@@ -66,7 +71,7 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env
+cp .env.dev.example .env
 # edit .env with your local credentials
 
 python src/manage.py migrate

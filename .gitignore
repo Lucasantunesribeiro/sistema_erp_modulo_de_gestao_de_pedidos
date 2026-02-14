@@ -53,6 +53,9 @@ docs/_build/
 .env
 .env.*
 !.env.example
+!.env.dev.example
+!.env.staging.example
+!.env.prod.example
 venv/
 ENV/
 env/
