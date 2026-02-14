@@ -43,6 +43,9 @@ docker compose exec api python src/manage.py migrate
 
 # 5) Create admin user
 docker compose exec api python src/manage.py createsuperuser
+
+# 6) Seed data
+docker compose exec api python src/manage.py seed_data
 ```
 
 API Docs:
@@ -68,6 +71,7 @@ cp .env.example .env
 
 python src/manage.py migrate
 python src/manage.py createsuperuser
+python src/manage.py seed_data
 python src/manage.py runserver
 ```
 
