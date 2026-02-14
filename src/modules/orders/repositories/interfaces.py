@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, Optional
+from uuid import UUID
 
 from django.db import models
-from uuid import UUID
 
 from modules.core.repositories.interfaces import IRepository
 

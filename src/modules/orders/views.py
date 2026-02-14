@@ -22,7 +22,6 @@ from modules.core.pagination import StandardResultsSetPagination
 from modules.customers.repositories.django_repository import CustomerDjangoRepository
 from modules.orders.constants import OrderStatus
 from modules.orders.dtos import CreateOrderDTO, CreateOrderItemDTO
-from modules.orders.models import Order
 from modules.orders.exceptions import (
     CustomerNotFound,
     InactiveCustomer,
@@ -33,6 +32,7 @@ from modules.orders.exceptions import (
     ProductNotFound,
 )
 from modules.orders.filters import OrderFilter
+from modules.orders.models import Order
 from modules.orders.repositories.django_repository import OrderDjangoRepository
 from modules.orders.serializers import (
     CreateOrderSerializer,
@@ -147,36 +147,11 @@ class OrderViewSet(GenericViewSet):
     def list(self, request: Request) -> Response:
         """GET /api/v1/orders/
 
-        Supports filters: ``status``, ``customer_id``, ``date_min``,
-        ``date_max``.  Results are paginated (default page size 20).
+        Filtering (status, customer, date range, total range) is handled
+        by ``OrderFilter`` via ``filter_backends``.  Ordering is handled
+        by ``OrderingFilter``.  Results are paginated.
         """
-        queryset = self.get_queryset()
-        if request.query_params.get("status"):
-            queryset = queryset.filter(status=request.query_params["status"])
-        if request.query_params.get("customer_id"):
-            queryset = queryset.filter(
-                customer_id=request.query_params["customer_id"]
-            )
-        if request.query_params.get("date_min"):
-            queryset = queryset.filter(
-                created_at__gte=request.query_params["date_min"]
-            )
-        if request.query_params.get("date_max"):
-            queryset = queryset.filter(
-                created_at__lte=request.query_params["date_max"]
-            )
-
-        queryset = self.filter_queryset(queryset)
-        if request.query_params.get("ordering"):
-            ordering_params = [
-                field.strip()
-                for field in request.query_params.get("ordering", "").split(",")
-                if field.strip()
-            ]
-            if ordering_params:
-                queryset = queryset.order_by(*ordering_params)
-        else:
-            queryset = queryset.order_by(*self.ordering)
+        queryset = self.filter_queryset(self.get_queryset())
 
         paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(queryset, request)
@@ -297,6 +272,3 @@ class OrderViewSet(GenericViewSet):
 
         serializer = OrderSerializer(order)
         return Response(serializer.data)
-
-    ordering_fields = ["created_at", "id", "status"]
-    ordering = ["-created_at", "-id"]

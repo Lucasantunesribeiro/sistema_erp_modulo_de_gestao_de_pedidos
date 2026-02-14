@@ -51,7 +51,12 @@ class Customer(SoftDeleteModel):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["-created_at"], name="customers_created_idx"),
-            models.Index(fields=["is_active"], name="customers_active_idx"),
+            # Composite: active customer listing sorted by date (replaces
+            # solo boolean index which has low selectivity on its own)
+            models.Index(
+                fields=["is_active", "-created_at"],
+                name="customers_active_created_idx",
+            ),
         ]
 
     # ------------------------------------------------------------------

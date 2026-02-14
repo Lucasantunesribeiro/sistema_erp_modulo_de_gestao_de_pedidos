@@ -81,6 +81,15 @@ class Order(DomainEventMixin, SoftDeleteModel):
         indexes = [
             models.Index(fields=["status"], name="orders_status_idx"),
             models.Index(fields=["-created_at"], name="orders_created_idx"),
+            # Composite: common filter (status) + sort (created_at) pattern
+            models.Index(
+                fields=["status", "-created_at"], name="orders_status_created_idx"
+            ),
+            # Composite: customer order listing sorted by date
+            models.Index(
+                fields=["customer", "-created_at"],
+                name="orders_customer_created_idx",
+            ),
         ]
 
     # ------------------------------------------------------------------
@@ -172,6 +181,10 @@ class OrderItem(SoftDeleteModel):
     class Meta:
         db_table = "order_items"
         ordering = ["created_at"]
+        indexes = [
+            # Covers JOIN from Order → Items and per-product lookups
+            models.Index(fields=["order", "product"], name="oi_order_product_idx"),
+        ]
         constraints = [
             models.CheckConstraint(
                 check=models.Q(quantity__gte=1),

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -47,19 +47,6 @@ class StubProduct:
             self.saved_update_fields = list(update_fields)
 
 
-class StubProductQuery:
-    def __init__(self, products_by_id: dict[UUID, StubProduct]):
-        self._products = products_by_id
-        self._current_id: UUID | None = None
-
-    def filter(self, id=None, **kwargs):
-        self._current_id = id
-        return self
-
-    def first(self):
-        return self._products.get(self._current_id)
-
-
 def _call_create_order(service: OrderService, dto: CreateOrderDTO):
     return OrderService.create_order.__wrapped__(service, dto)
 
@@ -70,11 +57,11 @@ def _call_update_status(
     return OrderService.update_status.__wrapped__(service, order_id, new_status, notes)
 
 
-def _patch_products(products_by_id: dict[UUID, StubProduct]):
-    query = StubProductQuery(products_by_id)
-    product_cls = MagicMock()
-    product_cls.objects.select_for_update.return_value = query
-    return patch("modules.products.models.Product", product_cls), product_cls
+def _setup_product_repo(
+    product_repo: MagicMock, products_by_id: dict[UUID, StubProduct]
+) -> None:
+    """Configure product_repo.get_for_update to return products by UUID."""
+    product_repo.get_for_update.side_effect = lambda pid: products_by_id.get(UUID(pid))
 
 
 @pytest.fixture()
@@ -88,7 +75,7 @@ def service_and_repos():
 
 class TestCreateOrder:
     def test_create_order_success_calls_repository_create(self, service_and_repos):
-        service, order_repo, customer_repo, _ = service_and_repos
+        service, order_repo, customer_repo, product_repo = service_and_repos
         customer_id = uuid4()
         customer_repo.get_by_id.return_value = StubCustomer(customer_id, True)
 
@@ -121,9 +108,10 @@ class TestCreateOrder:
         order_repo.create.return_value = order
         order_repo.get_by_id.return_value = order
 
-        patcher, _ = _patch_products({product_a.id: product_a, product_b.id: product_b})
-        with patcher:
-            result = _call_create_order(service, dto)
+        _setup_product_repo(
+            product_repo, {product_a.id: product_a, product_b.id: product_b}
+        )
+        result = _call_create_order(service, dto)
 
         assert result is order
         order_repo.create.assert_called_once()
@@ -161,7 +149,7 @@ class TestCreateOrder:
             CreateOrderDTO(customer_id=uuid4(), items=[])
 
     def test_create_order_customer_not_found_raises(self, service_and_repos):
-        service, order_repo, customer_repo, _ = service_and_repos
+        service, order_repo, customer_repo, product_repo = service_and_repos
         customer_repo.get_by_id.return_value = None
 
         dto = CreateOrderDTO(
@@ -169,16 +157,15 @@ class TestCreateOrder:
             items=[CreateOrderItemDTO(product_id=uuid4(), quantity=1)],
         )
 
-        patcher, product_cls = _patch_products({})
-        with patcher:
-            with pytest.raises(CustomerNotFound):
-                _call_create_order(service, dto)
+        _setup_product_repo(product_repo, {})
+        with pytest.raises(CustomerNotFound):
+            _call_create_order(service, dto)
 
-        assert not product_cls.objects.select_for_update.called
+        product_repo.get_for_update.assert_not_called()
         order_repo.create.assert_not_called()
 
     def test_create_order_inactive_customer_raises(self, service_and_repos):
-        service, order_repo, customer_repo, _ = service_and_repos
+        service, order_repo, customer_repo, product_repo = service_and_repos
         customer_id = uuid4()
         customer_repo.get_by_id.return_value = StubCustomer(customer_id, False)
 
@@ -187,16 +174,15 @@ class TestCreateOrder:
             items=[CreateOrderItemDTO(product_id=uuid4(), quantity=1)],
         )
 
-        patcher, product_cls = _patch_products({})
-        with patcher:
-            with pytest.raises(InactiveCustomer):
-                _call_create_order(service, dto)
+        _setup_product_repo(product_repo, {})
+        with pytest.raises(InactiveCustomer):
+            _call_create_order(service, dto)
 
-        assert not product_cls.objects.select_for_update.called
+        product_repo.get_for_update.assert_not_called()
         order_repo.create.assert_not_called()
 
     def test_create_order_product_not_found_raises(self, service_and_repos):
-        service, order_repo, customer_repo, _ = service_and_repos
+        service, order_repo, customer_repo, product_repo = service_and_repos
         customer_id = uuid4()
         customer_repo.get_by_id.return_value = StubCustomer(customer_id, True)
         missing_id = uuid4()
@@ -206,15 +192,14 @@ class TestCreateOrder:
             items=[CreateOrderItemDTO(product_id=missing_id, quantity=1)],
         )
 
-        patcher, _ = _patch_products({})
-        with patcher:
-            with pytest.raises(ProductNotFound):
-                _call_create_order(service, dto)
+        _setup_product_repo(product_repo, {})
+        with pytest.raises(ProductNotFound):
+            _call_create_order(service, dto)
 
         order_repo.create.assert_not_called()
 
     def test_create_order_inactive_product_raises(self, service_and_repos):
-        service, order_repo, customer_repo, _ = service_and_repos
+        service, order_repo, customer_repo, product_repo = service_and_repos
         customer_id = uuid4()
         customer_repo.get_by_id.return_value = StubCustomer(customer_id, True)
 
@@ -231,15 +216,14 @@ class TestCreateOrder:
             items=[CreateOrderItemDTO(product_id=product.id, quantity=1)],
         )
 
-        patcher, _ = _patch_products({product.id: product})
-        with patcher:
-            with pytest.raises(InactiveProduct):
-                _call_create_order(service, dto)
+        _setup_product_repo(product_repo, {product.id: product})
+        with pytest.raises(InactiveProduct):
+            _call_create_order(service, dto)
 
         order_repo.create.assert_not_called()
 
     def test_create_order_insufficient_stock_raises(self, service_and_repos):
-        service, order_repo, customer_repo, _ = service_and_repos
+        service, order_repo, customer_repo, product_repo = service_and_repos
         customer_id = uuid4()
         customer_repo.get_by_id.return_value = StubCustomer(customer_id, True)
 
@@ -255,16 +239,15 @@ class TestCreateOrder:
             items=[CreateOrderItemDTO(product_id=product.id, quantity=1)],
         )
 
-        patcher, _ = _patch_products({product.id: product})
-        with patcher:
-            with pytest.raises(InsufficientStock):
-                _call_create_order(service, dto)
+        _setup_product_repo(product_repo, {product.id: product})
+        with pytest.raises(InsufficientStock):
+            _call_create_order(service, dto)
 
         assert product.saved_update_fields is None
         order_repo.create.assert_not_called()
 
     def test_create_order_idempotency_returns_existing(self, service_and_repos):
-        service, order_repo, customer_repo, _ = service_and_repos
+        service, order_repo, customer_repo, product_repo = service_and_repos
         existing_order = MagicMock()
         existing_order.id = uuid4()
         order_repo.get_by_idempotency_key.return_value = existing_order
@@ -275,13 +258,12 @@ class TestCreateOrder:
             idempotency_key="idem-123",
         )
 
-        patcher, product_cls = _patch_products({})
-        with patcher:
-            result = _call_create_order(service, dto)
+        _setup_product_repo(product_repo, {})
+        result = _call_create_order(service, dto)
 
         assert result is existing_order
         customer_repo.get_by_id.assert_not_called()
-        assert not product_cls.objects.select_for_update.called
+        product_repo.get_for_update.assert_not_called()
         order_repo.create.assert_not_called()
 
 

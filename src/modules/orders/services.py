@@ -107,17 +107,11 @@ class OrderService:
             raise InactiveCustomer(f"Customer {dto.customer_id} is inactive.")
 
         # 2. Process items — sort by product_id to prevent deadlocks
-        from modules.products.models import Product
-
         sorted_items = sorted(dto.items, key=lambda i: str(i.product_id))
         repo_items = []
 
         for item_dto in sorted_items:
-            product = (
-                Product.objects.select_for_update()
-                .filter(id=item_dto.product_id)
-                .first()
-            )
+            product = self._product_repo.get_for_update(str(item_dto.product_id))
             if product is None:
                 raise ProductNotFound(f"Product {item_dto.product_id} not found.")
             if product.status != "active":
@@ -239,13 +233,9 @@ class OrderService:
             raise InvalidOrderStatus(f"Cannot cancel order in status {order.status}.")
 
         # 3. Release stock — lock products sorted by PK to prevent deadlocks
-        from modules.products.models import Product
-
         items = list(order.items.all().order_by("product_id"))
         for item in items:
-            product = (
-                Product.objects.select_for_update().filter(id=item.product_id).first()
-            )
+            product = self._product_repo.get_for_update(str(item.product_id))
             if product is not None:
                 product.stock_quantity += item.quantity
                 product.save(update_fields=["stock_quantity", "updated_at"])

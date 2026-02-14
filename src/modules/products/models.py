@@ -55,6 +55,8 @@ class Product(SoftDeleteModel):
         ordering = ["name"]
         indexes = [
             models.Index(fields=["status"], name="products_status_idx"),
+            # Composite: filtered product listing by status + name sort
+            models.Index(fields=["status", "name"], name="products_status_name_idx"),
         ]
         constraints = [
             models.CheckConstraint(

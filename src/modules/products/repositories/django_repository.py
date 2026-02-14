@@ -81,3 +81,10 @@ class ProductDjangoRepository(IProductRepository):
         if not product:
             return False
         return product.stock_quantity >= quantity
+
+    def get_for_update(self, id: str) -> Optional[Product]:
+        """Retrieve a product with SELECT FOR UPDATE for atomic stock ops."""
+        try:
+            return Product.objects.select_for_update().filter(id=id).first()
+        except (ValueError, ValidationError):
+            return None

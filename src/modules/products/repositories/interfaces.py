@@ -33,3 +33,11 @@ class IProductRepository(IRepository["Product"]):
     @abstractmethod
     def check_stock(self, id: str, quantity: int) -> bool:
         """Check whether sufficient stock exists for the requested quantity."""
+
+    @abstractmethod
+    def get_for_update(self, id: str) -> Optional["Product"]:
+        """Retrieve a product with a row-level lock (SELECT FOR UPDATE).
+
+        Used by the order service for atomic stock reservation/release.
+        Returns ``None`` if the product does not exist.
+        """

@@ -117,16 +117,19 @@ class OrderDjangoRepository(IOrderRepository):
             return None
 
     def list(self, filters: Optional[Dict[str, Any]] = None) -> models.QuerySet:
-        """List orders with optional filters and eager-loaded relations.
+        """List orders with optional filters.
+
+        Uses only ``select_related("customer")`` — nested prefetches
+        (items, status_history) are omitted because the list endpoint
+        uses ``OrderListSerializer`` which excludes nested relations.
+        This avoids 2 unnecessary batched queries per page.
 
         Supported filter keys:
         - ``status``
         - ``customer_id``
         - ``created_at__range``
         """
-        queryset = Order.objects.select_related("customer").prefetch_related(
-            "items__product", "status_history"
-        )
+        queryset = Order.objects.select_related("customer")
         if filters:
             queryset = queryset.filter(**filters)
         return queryset

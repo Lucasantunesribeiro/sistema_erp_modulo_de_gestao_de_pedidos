@@ -32,9 +32,7 @@ class IRepository(ABC, Generic[T]):
         """Retrieve an entity by its primary key."""
 
     @abstractmethod
-    def list(
-        self, filters: Optional[Dict[str, Any]] = None
-    ) -> Queryable[T]:
+    def list(self, filters: Optional[Dict[str, Any]] = None) -> Queryable[T]:
         """List entities with optional filters."""
 
     @abstractmethod
