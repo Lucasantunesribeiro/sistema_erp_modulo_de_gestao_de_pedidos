@@ -1,355 +1,107 @@
-# Sistema ERP - Módulo de Gestão de Pedidos
+# CorpSystem ERP - Order Management Module
 
-> API REST robusta para gestão de pedidos com arquitetura limpa, princípios SOLID e práticas de DevOps.
+[![CI](https://img.shields.io/github/actions/workflow/status/Lucasantunesribeiro/sistema_erp_modulo_de_gestao_de_pedidos/ci.yml?branch=master)](https://github.com/Lucasantunesribeiro/sistema_erp_modulo_de_gestao_de_pedidos/actions)
+[![Coverage](https://img.shields.io/badge/coverage-97.57%25-brightgreen)](docs/PHASE_1_TO_7_AUDIT_REPORT.md)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/django-5.0%2B-0c4b33)](https://www.djangoproject.com/)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-[![CI](https://github.com/Lucasantunesribeiro/sistema_erp_modulo_de_gestao_de_pedidos/actions/workflows/ci.yml/badge.svg)](https://github.com/Lucasantunesribeiro/sistema_erp_modulo_de_gestao_de_pedidos/actions)
-[![Coverage](https://img.shields.io/badge/coverage-80%25-brightgreen.svg)](https://github.com/Lucasantunesribeiro/sistema_erp_modulo_de_gestao_de_pedidos)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/django-5.0-green.svg)](https://www.djangoproject.com/)
+## About the Project
+CorpSystem ERP is a **high-performance Order Management module** designed for strong consistency,
+traceability, and clean extensibility. The backend follows **Modular Monolith** principles with **DDD
+and Clean Architecture**, enabling clear boundaries while keeping transactional integrity.
 
----
+**Tech Stack:** Python, Django REST Framework, Celery, Redis, MySQL, Docker.
 
-## 📋 Sumário
+## Architecture
+This project follows **Modular Monolith** boundaries with **DDD** and **Clean Architecture**
+principles. Services depend on repository interfaces (DIP) and cross-module access is done
+via public service contracts or domain events.
 
-- [Tecnologias Utilizadas](#-tecnologias-utilizadas)
-- [Pré-requisitos](#-pré-requisitos)
-- [Como Rodar Localmente](#-como-rodar-localmente)
-- [Como Rodar os Testes](#-como-rodar-os-testes)
-- [Estrutura de Pastas](#-estrutura-de-pastas)
-- [Documentação da API](#-documentação-da-api)
-- [Decisões Arquiteturais](#-decisões-arquiteturais)
-- [Regras de Negócio](#-regras-de-negócio)
-
----
-
-## 🚀 Tecnologias Utilizadas
-
-### Backend
-- **Python** 3.11+
-- **Django** 5.0
-- **Django REST Framework** 3.15+
-
-### Banco de Dados
-- **MySQL** 8.0 (obrigatório)
-- **Redis** 7 (cache e idempotência)
-
-### DevOps
-- **Docker** + Docker Compose
-- **Multi-stage builds**
-- **GitHub Actions** (CI/CD)
-
-### Testes
-- **Pytest** com cobertura
-- **Testes de integração**
-- **Testes de concorrência**
-
-### Observabilidade
-- **Logs estruturados** (JSON)
-- **Correlation ID**
-- **OpenTelemetry**
-
----
-
-## 📦 Pré-requisitos
-
-- Docker 24.0+
-- Docker Compose 2.20+
-- Git 2.40+
-
----
-
-## 🔧 Como Rodar Localmente
-
-### 1. Clone o repositório
+## Quick Start (Docker - Development)
+**Prerequisites:** Docker 24+ and Docker Compose 2.20+.
 
 ```bash
+# 1) Clone
 git clone https://github.com/Lucasantunesribeiro/sistema_erp_modulo_de_gestao_de_pedidos.git
 cd sistema_erp_modulo_de_gestao_de_pedidos
-```
 
-### 2. Configure as variáveis de ambiente
-
-```bash
+# 2) Environment
 cp .env.example .env
-# Edite o arquivo .env com suas configurações
+
+# 3) Start services
+docker compose up -d --build
+
+# 4) Migrations
+docker compose exec api python src/manage.py migrate
+
+# 5) Create admin user
+docker compose exec api python src/manage.py createsuperuser
 ```
 
-### 3. Inicie os serviços com Docker Compose
+API Docs:
+- Swagger UI: http://localhost:8000/api/docs/
+- ReDoc: http://localhost:8000/api/redoc/
+
+Health check:
+- http://localhost:8000/health
+
+## Manual Setup (No Docker)
+1. Create and activate a virtualenv.
+2. Install dependencies.
+3. Configure `.env` (see `.env.example`).
+4. Ensure MySQL 8.0 and Redis 7 are running locally.
 
 ```bash
-docker-compose up -d
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# edit .env with your local credentials
+
+python src/manage.py migrate
+python src/manage.py createsuperuser
+python src/manage.py runserver
 ```
 
-### 4. Execute as migrations
-
+## Tests & Quality
 ```bash
-docker-compose exec api python manage.py migrate
+# Tests (Docker)
+docker compose run --rm api pytest
+
+# Coverage (Docker)
+docker compose run --rm api pytest --cov=src --cov-report=term-missing --cov-report=html
+
+# Linting (Docker)
+docker compose run --rm api flake8 src tests
+docker compose run --rm api mypy --explicit-package-bases --config-file pyproject.toml src tests
 ```
 
-### 5. Crie dados iniciais (opcional)
+Coverage baseline (Phase 1–7): **97.57%** (see `docs/PHASE_1_TO_7_AUDIT_REPORT.md`).
 
-```bash
-docker-compose exec api python manage.py seed
-```
+## Documentation
+- `ARCHITECTURE.md`
+- `docs/BUSINESS_RULES.md`
+- `docs/API_EXAMPLES.md` (to be created in Step 59)
 
-### 6. Verifique o health check
-
-```bash
-curl http://localhost:8000/health
-```
-
-### 7. Acesse a documentação da API
-
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
----
-
-## 🧪 Como Rodar os Testes
-
-### Todos os testes
-
-```bash
-docker-compose exec api pytest
-```
-
-### Com cobertura
-
-```bash
-docker-compose exec api pytest --cov
-```
-
-### Testes específicos
-
-```bash
-# Testes de concorrência
-docker-compose exec api pytest tests/integration/test_stock_concurrency.py -v
-
-# Testes de idempotência
-docker-compose exec api pytest tests/integration/test_idempotency.py -v
-
-# Testes de atomicidade
-docker-compose exec api pytest tests/integration/test_atomicity.py -v
-```
-
----
-
-## 📁 Estrutura de Pastas
-
+## Project Structure
 ```
 .
-├── src/                          # Código fonte
-│   ├── config/                   # Configurações do Django
-│   │   ├── settings/             # Settings por ambiente
-│   │   ├── celery.py             # Configuração do Celery
-│   │   └── urls.py               # Rotas principais
-│   ├── core/                     # Funcionalidades transversais
-│   │   ├── models.py             # Modelo base com soft delete
-│   │   ├── repositories/         # Interfaces de repositório
-│   │   ├── exceptions/           # Exceções customizadas
-│   │   ├── middleware/           # Middlewares (correlation ID)
-│   │   └── events/               # Sistema de eventos
-│   ├── customers/                # Módulo de clientes
-│   │   ├── models.py
-│   │   ├── repositories.py
-│   │   ├── services.py
-│   │   ├── views.py
-│   │   └── serializers.py
-│   ├── products/                 # Módulo de produtos
-│   │   ├── models.py
-│   │   ├── repositories.py
-│   │   ├── services.py
-│   │   ├── views.py
-│   │   └── serializers.py
-│   ├── orders/                   # Módulo de pedidos
-│   │   ├── models.py
-│   │   ├── repositories/
-│   │   ├── services/
-│   │   │   ├── stock_service.py
-│   │   │   ├── idempotency_service.py
-│   │   │   └── order_service.py
-│   │   ├── domain/
-│   │   │   └── status_machine.py
-│   │   ├── views.py
-│   │   └── serializers.py
-│   └── manage.py
-├── tests/                        # Testes
-│   ├── unit/                     # Testes unitários
-│   ├── integration/              # Testes de integração
-│   ├── e2e/                      # Testes E2E
-│   └── conftest.py               # Fixtures globais
-├── docs/                         # Documentação
-│   ├── api-examples.md           # Exemplos de API
-│   └── er-diagram.md             # Diagrama ER
-├── .github/
-│   └── workflows/
-│       └── ci.yml                # Pipeline CI/CD
-├── docker-compose.yml            # Docker Compose
-├── Dockerfile                    # Dockerfile multi-stage
-├── .env.example                  # Exemplo de variáveis de ambiente
-├── requirements.txt              # Dependências
-├── README.md                     # Este arquivo
-└── ARCHITECTURE.md               # Documentação de arquitetura
+├── src/                 # Application source
+│   ├── config/          # Django settings, URLs, WSGI
+│   └── modules/         # Modular monolith domains
+│       ├── core/
+│       ├── customers/
+│       ├── products/
+│       └── orders/
+└── tests/               # Unit and integration tests
 ```
 
----
+## Contributing
+- Open an issue with clear reproduction steps.
+- Submit PRs with focused scope and tests.
+- Commit style: **Conventional Commits** (imperative, <= 72 chars).
 
-## 📚 Documentação da API
-
-### Endpoints Disponíveis
-
-#### Clientes
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| POST | /api/v1/customers | Criar cliente |
-| GET | /api/v1/customers | Listar clientes |
-| GET | /api/v1/customers/:id | Obter cliente |
-| PATCH | /api/v1/customers/:id | Atualizar cliente |
-| DELETE | /api/v1/customers/:id | Remover cliente (soft delete) |
-
-#### Produtos
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| POST | /api/v1/products | Criar produto |
-| GET | /api/v1/products | Listar produtos |
-| GET | /api/v1/products/:id | Obter produto |
-| PATCH | /api/v1/products/:id | Atualizar produto |
-| PATCH | /api/v1/products/:id/stock | Atualizar estoque |
-| DELETE | /api/v1/products/:id | Remover produto (soft delete) |
-
-#### Pedidos
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| POST | /api/v1/orders | Criar pedido |
-| GET | /api/v1/orders | Listar pedidos |
-| GET | /api/v1/orders/:id | Obter pedido |
-| PATCH | /api/v1/orders/:id/status | Atualizar status |
-| DELETE | /api/v1/orders/:id | Cancelar pedido |
-
-### Exemplos de Uso
-
-#### Criar um cliente
-
-```bash
-curl -X POST http://localhost:8000/api/v1/customers \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "João Silva",
-    "cpf_cnpj": "123.456.789-00",
-    "email": "joao@example.com",
-    "phone": "(11) 99999-9999",
-    "address": "Rua Exemplo, 123"
-  }'
-```
-
-#### Criar um produto
-
-```bash
-curl -X POST http://localhost:8000/api/v1/products \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sku": "PROD-001",
-    "name": "Produto Exemplo",
-    "description": "Descrição do produto",
-    "price": 99.99,
-    "stock_quantity": 100
-  }'
-```
-
-#### Criar um pedido
-
-```bash
-curl -X POST http://localhost:8000/api/v1/orders \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
-  -d '{
-    "customer_id": 1,
-    "items": [
-      {"product_id": 1, "quantity": 2},
-      {"product_id": 2, "quantity": 1}
-    ],
-    "notes": "Entregar após as 18h"
-  }'
-```
-
-#### Atualizar status do pedido
-
-```bash
-curl -X PATCH http://localhost:8000/api/v1/orders/1/status \
-  -H "Content-Type: application/json" \
-  -d '{
-    "status": "CONFIRMADO",
-    "notes": "Pagamento confirmado"
-  }'
-```
-
----
-
-## 🏗️ Decisões Arquiteturais
-
-### Arquitetura: Modular Monolith
-
-Optamos por uma arquitetura de **Monolito Modular** pelos seguintes motivos:
-
-1. **Integridade Transacional**: Operações de pedido e estoque exigem consistência forte (ACID)
-2. **Simplicidade Operacional**: Um único container é mais fácil de monitorar e fazer rollback
-3. **Velocidade de Desenvolvimento**: Refatorações são mais simples sem contratos entre serviços
-4. **Performance**: Chamadas in-process são mais rápidas que HTTP/gRPC
-
-### Padrões Adotados
-
-- **Repository Pattern**: Abstração do acesso a dados
-- **Service Layer**: Lógica de negócio isolada
-- **DTOs**: Separação entre modelos de domínio e contratos de API
-- **Domain Events**: Comunicação entre módulos via eventos
-- **Outbox Pattern**: Garantia de entrega de eventos
-
-### Controle de Concorrência
-
-- **Lock Pessimista**: `SELECT ... FOR UPDATE` para reserva de estoque
-- **Transações Atômicas**: Garantia de "tudo ou nada"
-- **Idempotência**: Chaves únicas com TTL no Redis
-
-Para mais detalhes, consulte o [ARCHITECTURE.md](ARCHITECTURE.md).
-
----
-
-## 📜 Regras de Negócio
-
-### Estoque
-- Reserva atômica ao criar pedido
-- Operação "tudo ou nada"
-- Proteção contra race condition
-- Devolução ao cancelar
-
-### Idempotência
-- Criação de pedidos via `idempotency_key`
-- Retorna pedido existente em replays
-- TTL de 24 horas
-
-### Status do Pedido
-```
-PENDENTE → CONFIRMADO → SEPARADO → ENVIADO → ENTREGUE
-    ↓           ↓
-CANCELADO   CANCELADO
-```
-
-Para mais detalhes, consulte o [BUSINESS_RULES.md](BUSINESS_RULES.md).
-
----
-
-## 📄 Licença
-
-Este projeto foi desenvolvido para fins de avaliação técnica.
-
----
-
-## 👨‍💻 Autor
-
-**Lucas Antunes Ribeiro**
-
-- GitHub: [@Lucasantunesribeiro](https://github.com/Lucasantunesribeiro)
-
----
-
-*Projeto desenvolvido para o Teste Técnico Desenvolvedor Backend Pleno ERP*
+## License
+MIT
